@@ -1,0 +1,316 @@
+{
+  "id": "ipip-50",
+  "version": "1.0.0",
+  "title": "Detailed Big Five",
+  "estimated_minutes": [
+    8,
+    12
+  ],
+  "source_urls": [
+    "https://ipip.ori.org/new_ipip-50-item-scale.htm",
+    "https://ipip.ori.org/newBigFive5broadKey.htm"
+  ],
+  "order_note": "Official numbered sample-questionnaire order. Emotional Stability is inverted to report Neuroticism.",
+  "items": [
+    {
+      "id": "ipip50-01",
+      "text": "Am the life of the party.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-02",
+      "text": "Feel little concern for others.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-03",
+      "text": "Am always prepared.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-04",
+      "text": "Get stressed out easily.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-05",
+      "text": "Have a rich vocabulary.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-06",
+      "text": "Don't talk a lot.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-07",
+      "text": "Am interested in people.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-08",
+      "text": "Leave my belongings around.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-09",
+      "text": "Am relaxed most of the time.",
+      "trait": "neuroticism",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-10",
+      "text": "Have difficulty understanding abstract ideas.",
+      "trait": "openness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-11",
+      "text": "Feel comfortable around people.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-12",
+      "text": "Insult people.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-13",
+      "text": "Pay attention to details.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-14",
+      "text": "Worry about things.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-15",
+      "text": "Have a vivid imagination.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-16",
+      "text": "Keep in the background.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-17",
+      "text": "Sympathize with others' feelings.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-18",
+      "text": "Make a mess of things.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-19",
+      "text": "Seldom feel blue.",
+      "trait": "neuroticism",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-20",
+      "text": "Am not interested in abstract ideas.",
+      "trait": "openness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-21",
+      "text": "Start conversations.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-22",
+      "text": "Am not interested in other people's problems.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-23",
+      "text": "Get chores done right away.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-24",
+      "text": "Am easily disturbed.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-25",
+      "text": "Have excellent ideas.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-26",
+      "text": "Have little to say.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-27",
+      "text": "Have a soft heart.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-28",
+      "text": "Often forget to put things back in their proper place.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-29",
+      "text": "Get upset easily.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-30",
+      "text": "Do not have a good imagination.",
+      "trait": "openness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-31",
+      "text": "Talk to a lot of different people at parties.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-32",
+      "text": "Am not really interested in others.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-33",
+      "text": "Like order.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-34",
+      "text": "Change my mood a lot.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-35",
+      "text": "Am quick to understand things.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-36",
+      "text": "Don't like to draw attention to myself.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-37",
+      "text": "Take time out for others.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-38",
+      "text": "Shirk my duties.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-39",
+      "text": "Have frequent mood swings.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-40",
+      "text": "Use difficult words.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-41",
+      "text": "Don't mind being the center of attention.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-42",
+      "text": "Feel others' emotions.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-43",
+      "text": "Follow a schedule.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-44",
+      "text": "Get irritated easily.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-45",
+      "text": "Spend time reflecting on things.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-46",
+      "text": "Am quiet around strangers.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "ipip50-47",
+      "text": "Make people feel at ease.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-48",
+      "text": "Am exacting in my work.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-49",
+      "text": "Often feel blue.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "ipip50-50",
+      "text": "Am full of ideas.",
+      "trait": "openness",
+      "reverse": false
+    }
+  ]
+}

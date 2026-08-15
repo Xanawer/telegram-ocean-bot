@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ocean
+      POSTGRES_USER: ocean
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ocean -d ocean"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    build: .
+    entrypoint: ["/app/docker/migrate.sh"]
+    env_file: .env
+    environment:
+      OCEAN_DATABASE_URL: postgresql://ocean:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/ocean
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      OCEAN_DATABASE_URL: postgresql://ocean:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/ocean
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${OCEAN_PORT:-8080}:8080"
+
+volumes:
+  postgres-data:

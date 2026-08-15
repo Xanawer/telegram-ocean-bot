@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.14"
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests migrations
+      - run: uv run ruff format --check src tests migrations
+      - run: uv run mypy src/ocean_bot
+      - run: uv run pytest -q
+      - name: Verify migrations
+        env:
+          OCEAN_DATABASE_URL: sqlite+aiosqlite:///migration-check.db
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+      - run: docker build .

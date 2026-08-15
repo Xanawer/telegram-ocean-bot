@@ -1,0 +1,135 @@
+{
+  "id": "mini-ipip-20",
+  "version": "1.0.0",
+  "title": "Quick Big Five",
+  "estimated_minutes": [
+    3,
+    5
+  ],
+  "source_urls": [
+    "https://ipip.ori.org/MiniIPIPKey.htm"
+  ],
+  "order_note": "Standard interleaving of the official factor-grouped Mini-IPIP items; IPIP does not require a fixed administration order.",
+  "items": [
+    {
+      "id": "mini-01",
+      "text": "Am the life of the party.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "mini-02",
+      "text": "Sympathize with others' feelings.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "mini-03",
+      "text": "Get chores done right away.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "mini-04",
+      "text": "Have frequent mood swings.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "mini-05",
+      "text": "Have a vivid imagination.",
+      "trait": "openness",
+      "reverse": false
+    },
+    {
+      "id": "mini-06",
+      "text": "Don't talk a lot.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "mini-07",
+      "text": "Am not interested in other people's problems.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "mini-08",
+      "text": "Often forget to put things back in their proper place.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "mini-09",
+      "text": "Am relaxed most of the time.",
+      "trait": "neuroticism",
+      "reverse": true
+    },
+    {
+      "id": "mini-10",
+      "text": "Have difficulty understanding abstract ideas.",
+      "trait": "openness",
+      "reverse": true
+    },
+    {
+      "id": "mini-11",
+      "text": "Talk to a lot of different people at parties.",
+      "trait": "extraversion",
+      "reverse": false
+    },
+    {
+      "id": "mini-12",
+      "text": "Feel others' emotions.",
+      "trait": "agreeableness",
+      "reverse": false
+    },
+    {
+      "id": "mini-13",
+      "text": "Like order.",
+      "trait": "conscientiousness",
+      "reverse": false
+    },
+    {
+      "id": "mini-14",
+      "text": "Get upset easily.",
+      "trait": "neuroticism",
+      "reverse": false
+    },
+    {
+      "id": "mini-15",
+      "text": "Am not interested in abstract ideas.",
+      "trait": "openness",
+      "reverse": true
+    },
+    {
+      "id": "mini-16",
+      "text": "Keep in the background.",
+      "trait": "extraversion",
+      "reverse": true
+    },
+    {
+      "id": "mini-17",
+      "text": "Am not really interested in others.",
+      "trait": "agreeableness",
+      "reverse": true
+    },
+    {
+      "id": "mini-18",
+      "text": "Make a mess of things.",
+      "trait": "conscientiousness",
+      "reverse": true
+    },
+    {
+      "id": "mini-19",
+      "text": "Seldom feel blue.",
+      "trait": "neuroticism",
+      "reverse": true
+    },
+    {
+      "id": "mini-20",
+      "text": "Do not have a good imagination.",
+      "trait": "openness",
+      "reverse": true
+    }
+  ]
+}
