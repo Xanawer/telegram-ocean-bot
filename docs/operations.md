@@ -7,13 +7,17 @@
 3. Leave webhook variables unset for long polling.
 4. Run `docker compose up --build`.
 
-Compose runs a one-shot `migrate` service before starting the bot. The application image itself never migrates on startup. The webhook deployment exposes `GET /health` and listens on `OCEAN_PORT`.
+Compose runs a one-shot `migrate` service before starting the bot. The application image itself never migrates on startup. The webhook deployment exposes database-backed readiness at `GET /health`, liveness at `GET /live`, and listens on `OCEAN_PORT`.
 
 ## Production deployment
 
 Use a Singapore region where the chosen hosting and managed PostgreSQL providers offer one. Set an HTTPS `OCEAN_WEBHOOK_BASE_URL` and an independent random `OCEAN_WEBHOOK_SECRET`; Telegram requests are rejected unless the `X-Telegram-Bot-Api-Secret-Token` matches. Restrict database ingress to the application, require TLS, use a dedicated least-privilege database role, and store all secrets in the platform secret manager.
 
-Run exactly one migration job per release before replacing application instances. Do not log environment variables or Telegram updates. Configure the platform to retain sanitized application error logs for no more than 30 days. Alert on failed health checks, repeated restarts, database exhaustion, and webhook delivery errors.
+Run exactly one migration job per release before replacing application instances. For a serverless service, set `OCEAN_RETENTION_MODE=external` and `OCEAN_WEBHOOK_SETUP_MODE=external`. Schedule exactly one daily `python -m ocean_bot retention` job with overlapping executions disabled. After the service is reachable, run `python -m ocean_bot set-webhook` as an explicit release step and verify Telegram's webhook status. The retention command emits only aggregate row counts.
+
+For an always-on VPS deployment, the default `background` retention and `startup` webhook setup modes remain available. Do not run a scheduled retention command at the same time as the background loop.
+
+Do not log environment variables or Telegram updates. Configure the platform to retain sanitized application error logs for no more than 30 days. Use `/live` only for process liveness and `/health` for readiness and external monitoring. Alert on failed readiness checks, repeated restarts, database exhaustion, failed scheduled jobs, and webhook delivery errors.
 
 ## Backup and restore
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -21,6 +22,8 @@ class Settings(BaseSettings):
     webhook_base_url: str | None = None
     webhook_secret: SecretStr | None = None
     port: int = 8080
+    retention_mode: Literal["background", "external"] = "background"
+    webhook_setup_mode: Literal["startup", "external"] = "startup"
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -46,3 +49,11 @@ class Settings(BaseSettings):
     @property
     def webhook_enabled(self) -> bool:
         return self.webhook_base_url is not None
+
+    @property
+    def background_retention_enabled(self) -> bool:
+        return self.retention_mode == "background"
+
+    @property
+    def configure_webhook_on_startup(self) -> bool:
+        return self.webhook_setup_mode == "startup"

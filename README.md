@@ -10,7 +10,7 @@ A privacy-conscious Telegram bot for the public-domain 20-item Mini-IPIP and 50-
 - Persistent results, JSON export, individual result deletion, and complete account deletion
 - Pseudonymous mandatory operational analytics with a 90-day raw retention limit
 - Allowlisted aggregate `/admin_stats`
-- Local long polling and authenticated production webhooks with `/health`
+- Local long polling and authenticated production webhooks with `/live` and database-backed `/health`
 
 Population percentiles are intentionally unavailable until a compatible, documented benchmark dataset is installed. The bot never labels results as Singapore norms.
 
@@ -29,10 +29,11 @@ OCEAN_DATABASE_URL=sqlite+aiosqlite:///local.db uv run alembic upgrade head
 uv run pytest -q
 uv run mypy src/ocean_bot
 uv run ruff check src tests migrations
-uv run python -m ocean_bot
+uv run python -m ocean_bot serve
+uv run python -m ocean_bot --help
 ```
 
-Leave `OCEAN_WEBHOOK_BASE_URL` unset for long polling. For PostgreSQL development and the complete application stack, fill in `.env` and run:
+Leave `OCEAN_WEBHOOK_BASE_URL` unset for long polling. Serverless deployments can run one-shot `retention` and `set-webhook` commands; see the operations guide for the required external modes. For PostgreSQL development and the complete application stack, fill in `.env` and run:
 
 ```bash
 docker compose up --build
