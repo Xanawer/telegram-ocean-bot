@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec uv run python -m ocean_bot
+exec /app/.venv/bin/python -m ocean_bot

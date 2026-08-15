@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec uv run alembic upgrade head
+exec /app/.venv/bin/alembic upgrade head
