@@ -14,7 +14,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-url = os.environ.get("OCEAN_DATABASE_URL")
+url = config.attributes.get("database_url") or os.environ.get("OCEAN_DATABASE_URL")
 if url:
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)

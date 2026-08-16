@@ -16,4 +16,9 @@ Data is used to operate and debug the bot and to improve it in aggregate. Assess
 
 ## Processors and contact
 
-Telegram processes messages under its own terms. The operator's hosting and PostgreSQL providers process encrypted-in-transit application traffic and stored data on the operator's behalf. The live bot's `/privacy` response identifies the configured privacy contact. Provider names and deployment region must be added to this notice before public launch.
+Telegram processes messages under its own terms. Railway runs the application and
+temporarily stores active or pending assessment records on its persistent volume.
+Supabase stores synchronized assessment history and operational analytics in PostgreSQL.
+Exports and deletion cover both stores. The live bot's `/privacy` response identifies the
+configured privacy contact. The configured Supabase project region must be confirmed in
+this notice before public launch.

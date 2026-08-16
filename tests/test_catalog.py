@@ -13,6 +13,7 @@ def test_bundled_questionnaires_match_published_item_counts_and_keys() -> None:
     catalog = load_bundled_questionnaires()
     quick = catalog["mini-ipip-20"]
     detailed = catalog["ipip-50"]
+    facet = catalog["ipip-120"]
 
     assert len(quick.items) == 20
     assert Counter(item.trait for item in quick.items) == {trait: 4 for trait in Trait}
@@ -29,6 +30,18 @@ def test_bundled_questionnaires_match_published_item_counts_and_keys() -> None:
     assert detailed.items[8].text == "Am relaxed most of the time."
     assert detailed.items[8].reverse is True
 
+    assert len(facet.items) == 120
+    assert Counter(item.trait for item in facet.items) == {trait: 24 for trait in Trait}
+    assert set(Counter(item.facet for item in facet.items).values()) == {4}
+    assert len({item.facet for item in facet.items}) == 30
+    assert facet.items[0].text == "Worry about things."
+    assert facet.items[0].facet == "Anxiety"
+    assert facet.items[8].text == "Use others for my own ends."
+    assert facet.items[8].reverse is True
+    assert facet.items[115].text == "Remain calm under pressure."
+    assert facet.items[115].trait is Trait.NEUROTICISM
+    assert facet.items[115].reverse is True
+
 
 @pytest.mark.parametrize(
     ("filename", "expected_sha256"),
@@ -40,6 +53,10 @@ def test_bundled_questionnaires_match_published_item_counts_and_keys() -> None:
         (
             "ipip_50.json",
             "2eb6bc85e59d991fa3703856210fb0214c15f98276eb50948de387d0969215e1",
+        ),
+        (
+            "ipip_120.json",
+            "a38df4704595c05f6ae19e32e92e8fbec4a2168312cc7e029b55ad9241d07552",
         ),
     ],
 )
@@ -67,6 +84,13 @@ def test_all_published_keys_produce_fixed_worked_scores() -> None:
             Trait.CONSCIENTIOUSNESS: 3.4,
             Trait.NEUROTICISM: 4.2,
             Trait.OPENNESS: 3.8,
+        },
+        "ipip-120": {
+            Trait.NEUROTICISM: 3.8333333333333335,
+            Trait.EXTRAVERSION: 4.0,
+            Trait.OPENNESS: 3.0,
+            Trait.AGREEABLENESS: 2.1666666666666665,
+            Trait.CONSCIENTIOUSNESS: 2.8333333333333335,
         },
     }
     for questionnaire_id, questionnaire in catalog.items():

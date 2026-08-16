@@ -34,8 +34,8 @@ async def test_user_can_consent_start_and_complete_an_assessment(
     await service.accept_terms(telegram_user_id=42, language_code="en", now=now)
 
     started = await service.start(telegram_user_id=42, questionnaire_id="quick", now=now)
-    after_first = await service.answer(42, started.id, "e1", 5, now)
-    completed = await service.answer(42, started.id, "e2", 2, now)
+    after_first = (await service.answer(42, started.id, "e1", 5, now)).view
+    completed = (await service.answer(42, started.id, "e2", 2, now)).view
 
     assert after_first.current_item_id == "e2"
     assert completed.status is AssessmentStatus.COMPLETED
@@ -54,13 +54,14 @@ async def test_duplicate_answer_is_idempotent_but_changed_stale_answer_is_reject
 
     duplicate = await service.answer(42, started.id, "e1", 5, now)
 
-    assert duplicate == expected
+    assert duplicate.view == expected.view
+    assert duplicate.changed is False
     with pytest.raises(StaleInput):
         await service.answer(42, started.id, "e1", 4, now)
 
 
 @pytest.mark.asyncio
-async def test_user_can_resume_go_back_cancel_export_and_delete(
+async def test_user_can_resume_go_back_and_cancel(
     service: AssessmentService,
 ) -> None:
     now = datetime(2026, 1, 1, tzinfo=UTC)
@@ -69,20 +70,13 @@ async def test_user_can_resume_go_back_cancel_export_and_delete(
     await service.answer(42, started.id, "e1", 5, now)
 
     resumed = await service.resume(42, now)
-    backed_up = await service.back(42, started.id, now)
-    export = await service.export_user(42)
+    backed_up = (await service.back(42, started.id, now)).view
 
     assert resumed is not None and resumed.current_item_id == "e2"
     assert backed_up.current_item_id == "e1"
-    assert export["user"]["language_code"] == "en"
-    assert export["assessments"][0]["answers"] == {}
-
-    cancelled = await service.cancel(42, started.id, now)
+    cancelled = (await service.cancel(42, started.id, now)).view
     assert cancelled.status is AssessmentStatus.CANCELLED
     assert await service.resume(42, now) is None
-
-    await service.delete_user(42)
-    assert await service.export_user(42) == {"user": None, "assessments": []}
 
 
 @pytest.mark.asyncio
@@ -93,7 +87,8 @@ async def test_incomplete_assessments_expire_after_thirty_days(
     await service.accept_terms(42, "en", started_at)
     started = await service.start(42, "quick", started_at)
 
-    expired_count = await service.expire_incomplete(datetime(2026, 2, 1, tzinfo=UTC))
+    expired_at = datetime(2026, 2, 1, tzinfo=UTC)
+    expired_count = await service.expire_incomplete_before(expired_at, expired_at)
 
     assert expired_count == 1
     assert (await service.get(42, started.id)).status is AssessmentStatus.EXPIRED

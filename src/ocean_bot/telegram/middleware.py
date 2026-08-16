@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict, deque
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from time import monotonic
 from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
+
+
+class UserActionLocks:
+    def __init__(self) -> None:
+        self._locks: dict[int, asyncio.Lock] = {}
+
+    @asynccontextmanager
+    async def hold(self, user_id: int) -> AsyncIterator[None]:
+        lock = self._locks.setdefault(user_id, asyncio.Lock())
+        async with lock:
+            yield
 
 
 class RateLimitMiddleware(BaseMiddleware):

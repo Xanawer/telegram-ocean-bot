@@ -12,6 +12,7 @@ from ocean_bot.domain.questionnaire import Questionnaire, Trait
 class ScoreResult:
     raw_scores: Mapping[Trait, float]
     scored_answers: Mapping[str, int]
+    facet_scores: Mapping[str, float] = MappingProxyType({})
 
 
 def score_questionnaire(
@@ -27,6 +28,7 @@ def score_questionnaire(
 
     scored_answers: dict[str, int] = {}
     scores_by_trait: dict[Trait, list[int]] = {}
+    scores_by_facet: dict[str, list[int]] = {}
     for item in questionnaire.items:
         answer = answers[item.id]
         if isinstance(answer, bool) or not 1 <= answer <= 5:
@@ -34,9 +36,14 @@ def score_questionnaire(
         scored = 6 - answer if item.reverse else answer
         scored_answers[item.id] = scored
         scores_by_trait.setdefault(item.trait, []).append(scored)
+        if item.facet is not None:
+            scores_by_facet.setdefault(item.facet, []).append(scored)
 
     raw_scores = {trait: fmean(values) for trait, values in scores_by_trait.items()}
     return ScoreResult(
         raw_scores=MappingProxyType(raw_scores),
         scored_answers=MappingProxyType(scored_answers),
+        facet_scores=MappingProxyType(
+            {facet: fmean(values) for facet, values in scores_by_facet.items()}
+        ),
     )

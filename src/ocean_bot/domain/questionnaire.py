@@ -18,10 +18,13 @@ class Item:
     text: str
     trait: Trait
     reverse: bool
+    facet: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id or not self.text:
             raise ValueError("Questionnaire items require an id and text")
+        if self.facet is not None and not self.facet:
+            raise ValueError("Questionnaire item facets cannot be empty")
 
 
 @dataclass(frozen=True, slots=True)

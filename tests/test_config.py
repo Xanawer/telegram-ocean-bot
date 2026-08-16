@@ -75,3 +75,27 @@ def test_external_webhook_setup_disables_startup_registration() -> None:
     )
 
     assert settings.configure_webhook_on_startup is False
+
+
+def test_local_first_storage_requires_a_sqlite_database() -> None:
+    settings = Settings(
+        bot_token="123456:test-token",
+        database_url="sqlite+aiosqlite:///remote.db",
+        analytics_pepper="long-test-pepper",
+        admin_user_id=42,
+        privacy_contact="privacy@example.com",
+        storage_mode="authoritative",
+        local_database_url="sqlite+aiosqlite:///local.db",
+    )
+
+    assert settings.local_storage_enabled is True
+
+    with pytest.raises(ValidationError):
+        Settings(
+            bot_token="123456:test-token",
+            database_url="sqlite+aiosqlite:///remote.db",
+            analytics_pepper="long-test-pepper",
+            admin_user_id=42,
+            privacy_contact="privacy@example.com",
+            storage_mode="authoritative",
+        )

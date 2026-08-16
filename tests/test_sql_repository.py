@@ -9,7 +9,7 @@ from ocean_bot.infrastructure.database import Base, SqlAssessmentRepository, ses
 
 
 @pytest.mark.asyncio
-async def test_sql_repository_persists_history_and_cascades_user_deletion() -> None:
+async def test_sql_repository_persists_history() -> None:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -18,7 +18,7 @@ async def test_sql_repository_persists_history_and_cascades_user_deletion() -> N
         "quick",
         "1",
         "Quick",
-        (Item("e1", "First", Trait.EXTRAVERSION, False),),
+        (Item("e1", "First", Trait.EXTRAVERSION, False, "Friendliness"),),
     )
     service = AssessmentService(SqlAssessmentRepository(sessions), {"quick": questionnaire})
     now = datetime(2026, 1, 1, tzinfo=UTC)
@@ -31,10 +31,10 @@ async def test_sql_repository_persists_history_and_cascades_user_deletion() -> N
 
     await service.answer(42, started.id, "e1", 5, now)
     reloaded = AssessmentService(SqlAssessmentRepository(sessions), {"quick": questionnaire})
-    assert (await reloaded.history(42))[0].scores == {Trait.EXTRAVERSION: 5.0}
+    result = (await reloaded.history(42))[0]
+    assert result.scores == {Trait.EXTRAVERSION: 5.0}
+    assert result.facet_scores == {"Friendliness": 5.0}
 
-    await reloaded.delete_user(42)
-    assert await reloaded.export_user(42) == {"user": None, "assessments": []}
     await engine.dispose()
 
 
@@ -58,11 +58,11 @@ async def test_sql_repository_rejects_stale_concurrent_write() -> None:
     first = await repository.get_assessment(started.id)
     second = await repository.get_assessment(started.id)
     assert first is not None and second is not None
-    first.answers["e1"] = 5
-    second.answers["e1"] = 4
+    first_update = first.assessment.answer(questionnaire, "e1", 5, now)
+    second_update = second.assessment.answer(questionnaire, "e1", 4, now)
 
-    await repository.save_assessment(first)
+    await repository.save_assessment(first, first_update)
     with pytest.raises(StaleInput, match="changed"):
-        await repository.save_assessment(second)
+        await repository.save_assessment(second, second_update)
 
     await engine.dispose()

@@ -29,11 +29,16 @@ services:
     env_file: .env
     environment:
       OCEAN_DATABASE_URL: postgresql://ocean:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/ocean
+      OCEAN_STORAGE_MODE: ${OCEAN_STORAGE_MODE:-remote}
+      OCEAN_LOCAL_DATABASE_URL: ${OCEAN_LOCAL_DATABASE_URL:-sqlite+aiosqlite:////data/ocean-local.db}
     depends_on:
       migrate:
         condition: service_completed_successfully
     ports:
       - "${OCEAN_PORT:-8080}:8080"
+    volumes:
+      - local-state:/data
 
 volumes:
   postgres-data:
+  local-state:

@@ -1106,6 +1106,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
     { name = "aiohttp" },
+    { name = "aiosqlite" },
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "pydantic-settings" },
@@ -1114,7 +1115,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "aiosqlite" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1125,6 +1125,7 @@ dev = [
 requires-dist = [
     { name = "aiogram", specifier = ">=3.17,<4" },
     { name = "aiohttp", specifier = ">=3.11,<4" },
+    { name = "aiosqlite", specifier = ">=0.20,<1" },
     { name = "alembic", specifier = ">=1.14,<2" },
     { name = "asyncpg", specifier = ">=0.30,<1" },
     { name = "pydantic-settings", specifier = ">=2.7,<3" },
@@ -1133,7 +1134,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aiosqlite", specifier = ">=0.20,<1" },
     { name = "mypy", specifier = ">=1.14,<2" },
     { name = "pytest", specifier = ">=8.3,<9" },
     { name = "pytest-asyncio", specifier = ">=0.25,<1" },

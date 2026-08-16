@@ -8,81 +8,37 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from ocean_bot.application.analytics import AnalyticsRecord
 from ocean_bot.config import Settings
-from ocean_bot.infrastructure.database import Base
-from ocean_bot.main import (
-    RetentionResult,
-    RetentionState,
-    _run_retention,
-    _webhook_app,
-    configure_webhook,
-    database_is_ready,
-    run_retention_once,
+from ocean_bot.infrastructure.database import (
+    Base,
+    SqlAnalyticsRepository,
+    session_factory,
 )
+from ocean_bot.infrastructure.local import create_local_engine
+from ocean_bot.infrastructure.migrations import upgrade_database
+from ocean_bot.runtime import Runtime
 
 
-async def test_retention_retries_and_recovers_after_transient_error() -> None:
-    service = SimpleNamespace(expire_incomplete=AsyncMock(side_effect=[RuntimeError("down"), 0]))
-    analytics = SimpleNamespace(purge=AsyncMock(return_value=0))
-    state = RetentionState()
-    sleeps = 0
-
-    async def stop_after_retry(_: float) -> None:
-        nonlocal sleeps
-        sleeps += 1
-        if sleeps == 2:
-            raise asyncio.CancelledError
-
-    with pytest.raises(asyncio.CancelledError):
-        await _run_retention(service, analytics, state, sleep=stop_after_retry)
-
-    assert service.expire_incomplete.await_count == 2
-    assert state.healthy is True
-
-
-async def test_one_shot_retention_reports_completed_work() -> None:
-    now = datetime(2026, 8, 16, tzinfo=UTC)
-    service = SimpleNamespace(expire_incomplete=AsyncMock(return_value=2))
-    analytics = SimpleNamespace(purge=AsyncMock(return_value=7))
-
-    result = await run_retention_once(service, analytics, now)
-
-    assert result == RetentionResult(expired_assessments=2, purged_analytics_events=7)
-    service.expire_incomplete.assert_awaited_once_with(now)
-    analytics.purge.assert_awaited_once_with(now)
-
-
-async def test_database_readiness_executes_a_real_query() -> None:
-    engine = create_async_engine("sqlite+aiosqlite://")
-    try:
-        assert await database_is_ready(engine) is True
-    finally:
-        await engine.dispose()
-
-
-async def test_configure_webhook_registers_authenticated_endpoint() -> None:
-    settings = Settings(
+def _settings(database_url: str, **values: object) -> Settings:
+    return Settings(
         bot_token="123456:test-token",
-        database_url="sqlite+aiosqlite:///local.db",
+        database_url=database_url,
         analytics_pepper="long-test-pepper",
         admin_user_id=42,
         privacy_contact="privacy@example.com",
-        webhook_base_url="https://bot.example.com/",
-        webhook_secret="s" * 32,
+        **values,
     )
-    bot = SimpleNamespace(set_my_commands=AsyncMock(), set_webhook=AsyncMock())
 
-    await configure_webhook(bot, settings)
 
-    bot.set_my_commands.assert_awaited_once()
-    bot.set_webhook.assert_awaited_once_with(
-        "https://bot.example.com/telegram/webhook",
-        secret_token="s" * 32,
-    )
+async def _create_schema(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    await engine.dispose()
 
 
 def test_runtime_cli_advertises_service_and_job_commands() -> None:
@@ -93,28 +49,12 @@ def test_runtime_cli_advertises_service_and_job_commands() -> None:
         text=True,
     )
 
-    assert "{serve,retention,set-webhook}" in completed.stdout
+    assert "{serve,retention,set-webhook,sync}" in completed.stdout
 
 
-async def test_database_readiness_reports_unavailable_without_raising() -> None:
-    class UnavailableEngine:
-        def connect(self) -> None:
-            raise ConnectionError("database unavailable")
-
-    assert await database_is_ready(UnavailableEngine()) is False  # type: ignore[arg-type]
-
-
-def test_retention_cli_runs_one_cycle_and_exits(tmp_path: Path) -> None:
-    database_path = tmp_path / "retention.db"
-    database_url = f"sqlite+aiosqlite:///{database_path}"
-
-    async def create_schema() -> None:
-        engine = create_async_engine(database_url)
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
-        await engine.dispose()
-
-    asyncio.run(create_schema())
+def test_retention_cli_runs_one_cycle_without_constructing_telegram(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'retention.db'}"
+    asyncio.run(_create_schema(database_url))
     environment = os.environ.copy()
     environment.update(
         {
@@ -141,20 +81,138 @@ def test_retention_cli_runs_one_cycle_and_exits(tmp_path: Path) -> None:
     }
 
 
+async def test_retention_runtime_constructs_only_database(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'runtime-retention.db'}"
+    await _create_schema(database_url)
+
+    def fail_bot(_: str) -> None:
+        raise AssertionError("retention must not construct Telegram")
+
+    runtime = Runtime(
+        _settings(database_url),
+        bot_factory=fail_bot,  # type: ignore[arg-type]
+    )
+
+    result = await runtime.run_retention()
+
+    assert result.expired_assessments == 0
+    assert result.purged_analytics_events == 0
+
+
+async def test_authoritative_retention_purges_local_and_remote_analytics(
+    tmp_path: Path,
+) -> None:
+    remote_url = f"sqlite+aiosqlite:///{tmp_path / 'remote-retention.db'}"
+    local_url = f"sqlite+aiosqlite:///{tmp_path / 'local-retention.db'}"
+    await _create_schema(remote_url)
+    await upgrade_database(local_url)
+    remote_engine = create_async_engine(remote_url)
+    local_engine = create_local_engine(local_url)
+    remote = SqlAnalyticsRepository(session_factory(remote_engine))
+    local = SqlAnalyticsRepository(session_factory(local_engine))
+    old = datetime(2025, 1, 1, tzinfo=UTC)
+    await remote.add_event(AnalyticsRecord("remote-old", "ref", "event", old, {}))
+    await local.add_event(AnalyticsRecord("local-old", "ref", "event", old, {}))
+    await remote_engine.dispose()
+    await local_engine.dispose()
+
+    result = await Runtime(
+        _settings(
+            remote_url,
+            storage_mode="authoritative",
+            local_database_url=local_url,
+        )
+    ).run_retention()
+
+    remote_engine = create_async_engine(remote_url)
+    local_engine = create_local_engine(local_url)
+    remote = SqlAnalyticsRepository(session_factory(remote_engine))
+    local = SqlAnalyticsRepository(session_factory(local_engine))
+    assert result.purged_analytics_events == 2
+    assert await remote.delete_before(datetime(2027, 1, 1, tzinfo=UTC)) == 0
+    assert await local.delete_before(datetime(2027, 1, 1, tzinfo=UTC)) == 0
+    await remote_engine.dispose()
+    await local_engine.dispose()
+
+
+async def test_sync_runtime_migrates_local_volume_and_drains_queue(
+    tmp_path: Path,
+) -> None:
+    remote_url = f"sqlite+aiosqlite:///{tmp_path / 'remote.db'}"
+    local_url = f"sqlite+aiosqlite:///{tmp_path / 'local.db'}"
+    await _create_schema(remote_url)
+    runtime = Runtime(
+        _settings(
+            remote_url,
+            storage_mode="authoritative",
+            local_database_url=local_url,
+        )
+    )
+
+    result = await runtime.run_sync()
+
+    assert result.remaining == 0
+    assert (tmp_path / "local.db").exists()
+
+
+async def test_set_webhook_constructs_only_telegram_dependency() -> None:
+    settings = _settings(
+        "sqlite+aiosqlite:///unused.db",
+        webhook_base_url="https://bot.example.com/",
+        webhook_secret="s" * 32,
+    )
+    fake_bot = SimpleNamespace(
+        set_my_commands=AsyncMock(),
+        set_webhook=AsyncMock(),
+        session=SimpleNamespace(close=AsyncMock()),
+    )
+
+    def fail_engine(_: str) -> None:
+        raise AssertionError("set-webhook must not construct a database engine")
+
+    runtime = Runtime(
+        settings,
+        bot_factory=lambda _: fake_bot,  # type: ignore[arg-type,return-value]
+        engine_factory=fail_engine,  # type: ignore[arg-type]
+    )
+
+    await runtime.set_webhook()
+
+    fake_bot.set_my_commands.assert_awaited_once()
+    fake_bot.set_webhook.assert_awaited_once_with(
+        "https://bot.example.com/telegram/webhook",
+        secret_token="s" * 32,
+    )
+    fake_bot.session.close.assert_awaited_once()
+
+
+async def test_database_readiness_executes_a_real_query() -> None:
+    engine = create_async_engine("sqlite+aiosqlite://")
+    try:
+        assert await Runtime(_settings("sqlite+aiosqlite://")).database_is_ready(engine)
+    finally:
+        await engine.dispose()
+
+
+async def test_database_readiness_reports_unavailable_without_raising() -> None:
+    class UnavailableEngine:
+        def connect(self) -> None:
+            raise ConnectionError("database unavailable")
+
+    runtime = Runtime(_settings("sqlite+aiosqlite://"))
+    assert await runtime.database_is_ready(UnavailableEngine()) is False  # type: ignore[arg-type]
+
+
 async def test_webhook_health_checks_database_without_startup_side_effects() -> None:
-    settings = Settings(
-        bot_token="123456:test-token",
-        database_url="sqlite+aiosqlite://",
-        analytics_pepper="long-test-pepper",
-        admin_user_id=42,
-        privacy_contact="privacy@example.com",
+    settings = _settings(
+        "sqlite+aiosqlite://",
         webhook_base_url="https://bot.example.com",
         webhook_secret="s" * 32,
         retention_mode="external",
         webhook_setup_mode="external",
     )
 
-    async with TestClient(TestServer(_webhook_app(settings))) as client:
+    async with TestClient(TestServer(Runtime(settings).webhook_app())) as client:
         live = await client.get("/live")
         live_body = await live.json()
         ready = await client.get("/health")

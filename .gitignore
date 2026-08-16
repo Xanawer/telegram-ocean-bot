@@ -1,4 +1,7 @@
 .env
+.env.*
+!.env.example
+*.swp
 .venv/
 __pycache__/
 *.py[cod]

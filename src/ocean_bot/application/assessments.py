@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
 from uuid import uuid4
 
+from ocean_bot.application.analytics import AnalyticsEvent
 from ocean_bot.domain.assessment import (
     Assessment,
+    AssessmentStateError,
     AssessmentStatus,
     AssessmentView,
     UserRecord,
 )
 from ocean_bot.domain.questionnaire import Questionnaire
-from ocean_bot.domain.scoring import score_questionnaire
 
 
 class AssessmentError(Exception):
@@ -35,17 +37,44 @@ class StaleInput(AssessmentError):
     pass
 
 
+class StorageUnavailable(AssessmentError):
+    pass
+
+
+class SyncBacklogExceeded(AssessmentError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class StoredAssessment:
+    assessment: Assessment
+    token: object
+
+
+@dataclass(frozen=True, slots=True)
+class AssessmentTransition:
+    view: AssessmentView
+    changed: bool
+
+
+type AssessmentEventFactory = Callable[[Assessment], AnalyticsEvent]
+
+
 class AssessmentRepository(Protocol):
     async def save_user(self, user: UserRecord) -> None: ...
     async def get_user(self, telegram_user_id: int) -> UserRecord | None: ...
-    async def save_assessment(self, assessment: Assessment) -> None: ...
-    async def get_assessment(self, assessment_id: str) -> Assessment | None: ...
-    async def get_active(self, telegram_user_id: int) -> Assessment | None: ...
-    async def list_completed(self, telegram_user_id: int) -> list[Assessment]: ...
-    async def list_all(self, telegram_user_id: int) -> list[Assessment]: ...
-    async def list_active_before(self, cutoff: datetime) -> list[Assessment]: ...
+    async def create_assessment(self, assessment: Assessment) -> StoredAssessment: ...
+    async def save_assessment(
+        self,
+        stored: StoredAssessment,
+        assessment: Assessment,
+        event: AnalyticsEvent | None = None,
+    ) -> StoredAssessment: ...
+    async def get_assessment(self, assessment_id: str) -> StoredAssessment | None: ...
+    async def get_active(self, telegram_user_id: int) -> StoredAssessment | None: ...
+    async def list_completed(self, telegram_user_id: int) -> list[StoredAssessment]: ...
+    async def list_active_before(self, cutoff: datetime) -> list[StoredAssessment]: ...
     async def delete_assessment(self, assessment_id: str, telegram_user_id: int) -> None: ...
-    async def delete_user(self, telegram_user_id: int) -> None: ...
 
 
 class AssessmentService:
@@ -76,24 +105,15 @@ class AssessmentService:
     ) -> AssessmentView:
         if await self._repository.get_user(telegram_user_id) is None:
             raise ConsentRequired("Accept the privacy notice before starting")
-        if questionnaire_id not in self._questionnaires:
+        questionnaire = self._questionnaires.get(questionnaire_id)
+        if questionnaire is None:
             raise AssessmentNotFound("Unknown questionnaire")
         active = await self._repository.get_active(telegram_user_id)
         if active is not None:
-            raise ActiveAssessmentExists(active.id)
-        questionnaire = self._questionnaires[questionnaire_id]
-        assessment = Assessment(
-            id=str(uuid4()),
-            telegram_user_id=telegram_user_id,
-            questionnaire_id=questionnaire.id,
-            questionnaire_version=questionnaire.version,
-            status=AssessmentStatus.ACTIVE,
-            answers={},
-            started_at=now,
-            updated_at=now,
-        )
-        await self._repository.save_assessment(assessment)
-        return self._view(assessment)
+            raise ActiveAssessmentExists(active.assessment.id)
+        assessment = Assessment.start(str(uuid4()), telegram_user_id, questionnaire, now)
+        stored = await self._repository.create_assessment(assessment)
+        return self._view(stored.assessment)
 
     async def answer(
         self,
@@ -102,143 +122,104 @@ class AssessmentService:
         item_id: str,
         value: int,
         now: datetime,
-    ) -> AssessmentView:
-        assessment = await self._owned_assessment(telegram_user_id, assessment_id)
-        await self._reject_expired(assessment, now)
-        if item_id in assessment.answers:
-            if assessment.answers[item_id] == value:
-                return self._view(assessment)
-            raise StaleInput("That answer has already been recorded")
-        if assessment.status is not AssessmentStatus.ACTIVE:
-            raise StaleInput("This assessment is no longer active")
-        questionnaire = self._questionnaire_for(assessment)
-        expected = questionnaire.items[len(assessment.answers)].id
-        if item_id != expected:
-            raise StaleInput("This question is no longer active")
-        if isinstance(value, bool) or not 1 <= value <= 5:
-            raise ValueError("Answers must be integers from 1 to 5")
-        assessment.answers[item_id] = value
-        assessment.updated_at = now
-        if len(assessment.answers) == len(questionnaire.items):
-            score = score_questionnaire(questionnaire, assessment.answers)
-            assessment.scores = dict(score.raw_scores)
-            assessment.status = AssessmentStatus.COMPLETED
-            assessment.completed_at = now
-        await self._repository.save_assessment(assessment)
-        return self._view(assessment)
+        event_factory: AssessmentEventFactory | None = None,
+    ) -> AssessmentTransition:
+        stored = await self._owned_assessment(telegram_user_id, assessment_id)
+        await self._reject_expired(stored, now)
+        questionnaire = self._questionnaire_for(stored.assessment)
+        try:
+            updated = stored.assessment.answer(questionnaire, item_id, value, now)
+        except AssessmentStateError as error:
+            raise StaleInput(str(error)) from error
+        if updated is stored.assessment:
+            return AssessmentTransition(self._view(updated), changed=False)
+        transition_event = event_factory(updated) if event_factory is not None else None
+        saved = await self._repository.save_assessment(
+            stored,
+            updated,
+            transition_event,
+        )
+        return AssessmentTransition(self._view(saved.assessment), changed=True)
 
     async def history(self, telegram_user_id: int) -> list[AssessmentView]:
         assessments = await self._repository.list_completed(telegram_user_id)
-        return [self._view(assessment) for assessment in assessments]
+        return [self._view(stored.assessment) for stored in assessments]
 
     async def get(self, telegram_user_id: int, assessment_id: str) -> AssessmentView:
-        return self._view(await self._owned_assessment(telegram_user_id, assessment_id))
+        stored = await self._owned_assessment(telegram_user_id, assessment_id)
+        return self._view(stored.assessment)
 
     async def resume(self, telegram_user_id: int, now: datetime) -> AssessmentView | None:
-        active = await self._repository.get_active(telegram_user_id)
-        if active is None:
+        stored = await self._repository.get_active(telegram_user_id)
+        if stored is None:
             return None
-        if now - active.updated_at >= timedelta(days=30):
-            active.status = AssessmentStatus.EXPIRED
-            active.updated_at = now
-            await self._repository.save_assessment(active)
+        assessment = stored.assessment
+        if self._is_expired(assessment, now):
+            await self._repository.save_assessment(stored, assessment.expire(now))
             return None
-        return self._view(active)
+        return self._view(assessment)
 
     async def back(
         self,
         telegram_user_id: int,
         assessment_id: str,
         now: datetime,
-    ) -> AssessmentView:
-        assessment = await self._owned_assessment(telegram_user_id, assessment_id)
-        await self._reject_expired(assessment, now)
-        if assessment.status is not AssessmentStatus.ACTIVE:
-            raise StaleInput("This assessment is no longer active")
-        if assessment.answers:
-            assessment.answers.pop(next(reversed(assessment.answers)))
-            assessment.updated_at = now
-            await self._repository.save_assessment(assessment)
-        return self._view(assessment)
+        event_factory: AssessmentEventFactory | None = None,
+    ) -> AssessmentTransition:
+        stored = await self._owned_assessment(telegram_user_id, assessment_id)
+        await self._reject_expired(stored, now)
+        try:
+            updated = stored.assessment.back(self._questionnaire_for(stored.assessment), now)
+        except AssessmentStateError as error:
+            raise StaleInput(str(error)) from error
+        if updated is stored.assessment:
+            return AssessmentTransition(self._view(updated), changed=False)
+        event = event_factory(updated) if event_factory is not None else None
+        saved = await self._repository.save_assessment(stored, updated, event)
+        return AssessmentTransition(self._view(saved.assessment), changed=True)
 
     async def cancel(
         self,
         telegram_user_id: int,
         assessment_id: str,
         now: datetime,
-    ) -> AssessmentView:
-        assessment = await self._owned_assessment(telegram_user_id, assessment_id)
-        await self._reject_expired(assessment, now)
-        if assessment.status is not AssessmentStatus.ACTIVE:
-            raise StaleInput("This assessment is no longer active")
-        assessment.status = AssessmentStatus.CANCELLED
-        assessment.updated_at = now
-        await self._repository.save_assessment(assessment)
-        return self._view(assessment)
+        event_factory: AssessmentEventFactory | None = None,
+    ) -> AssessmentTransition:
+        stored = await self._owned_assessment(telegram_user_id, assessment_id)
+        await self._reject_expired(stored, now)
+        try:
+            updated = stored.assessment.cancel(now)
+        except AssessmentStateError as error:
+            raise StaleInput(str(error)) from error
+        event = event_factory(updated) if event_factory is not None else None
+        saved = await self._repository.save_assessment(stored, updated, event)
+        return AssessmentTransition(self._view(saved.assessment), changed=True)
 
-    async def expire_incomplete(self, now: datetime) -> int:
-        assessments = await self._repository.list_active_before(now - timedelta(days=30))
-        for assessment in assessments:
-            assessment.status = AssessmentStatus.EXPIRED
-            assessment.updated_at = now
-            await self._repository.save_assessment(assessment)
-        return len(assessments)
-
-    async def export_user(self, telegram_user_id: int) -> dict[str, object]:
-        user = await self._repository.get_user(telegram_user_id)
-        assessments = await self._repository.list_all(telegram_user_id)
-        user_data: dict[str, object] | None = None
-        if user is not None:
-            user_data = {
-                "telegram_user_id": user.telegram_user_id,
-                "language_code": user.language_code,
-                "accepted_at": user.accepted_at.isoformat(),
-            }
-        return {
-            "user": user_data,
-            "assessments": [
-                {
-                    "id": assessment.id,
-                    "questionnaire_id": assessment.questionnaire_id,
-                    "questionnaire_version": assessment.questionnaire_version,
-                    "status": assessment.status.value,
-                    "answers": dict(assessment.answers),
-                    "scores": {trait.value: score for trait, score in assessment.scores.items()},
-                    "started_at": assessment.started_at.isoformat(),
-                    "completed_at": (
-                        assessment.completed_at.isoformat()
-                        if assessment.completed_at is not None
-                        else None
-                    ),
-                }
-                for assessment in assessments
-            ],
-        }
+    async def expire_incomplete_before(self, cutoff: datetime, now: datetime) -> int:
+        stored_assessments = await self._repository.list_active_before(cutoff)
+        for stored in stored_assessments:
+            await self._repository.save_assessment(stored, stored.assessment.expire(now))
+        return len(stored_assessments)
 
     async def delete_assessment(self, telegram_user_id: int, assessment_id: str) -> None:
-        assessment = await self._owned_assessment(telegram_user_id, assessment_id)
-        if assessment.status is not AssessmentStatus.COMPLETED:
+        stored = await self._owned_assessment(telegram_user_id, assessment_id)
+        if stored.assessment.status is not AssessmentStatus.COMPLETED:
             raise StaleInput("Only completed results can be deleted individually")
         await self._repository.delete_assessment(assessment_id, telegram_user_id)
 
-    async def delete_user(self, telegram_user_id: int) -> None:
-        await self._repository.delete_user(telegram_user_id)
-
-    async def _reject_expired(self, assessment: Assessment, now: datetime) -> None:
-        if (
-            assessment.status is AssessmentStatus.ACTIVE
-            and now - assessment.updated_at >= timedelta(days=30)
-        ):
-            assessment.status = AssessmentStatus.EXPIRED
-            assessment.updated_at = now
-            await self._repository.save_assessment(assessment)
+    async def _reject_expired(self, stored: StoredAssessment, now: datetime) -> None:
+        assessment = stored.assessment
+        if self._is_expired(assessment, now):
+            await self._repository.save_assessment(stored, assessment.expire(now))
             raise StaleInput("This assessment has expired")
 
-    async def _owned_assessment(self, telegram_user_id: int, assessment_id: str) -> Assessment:
-        assessment = await self._repository.get_assessment(assessment_id)
-        if assessment is None or assessment.telegram_user_id != telegram_user_id:
+    async def _owned_assessment(
+        self, telegram_user_id: int, assessment_id: str
+    ) -> StoredAssessment:
+        stored = await self._repository.get_assessment(assessment_id)
+        if stored is None or stored.assessment.telegram_user_id != telegram_user_id:
             raise AssessmentNotFound("Assessment not found")
-        return assessment
+        return stored
 
     def _questionnaire_for(self, assessment: Assessment) -> Questionnaire:
         questionnaire = self._questionnaires.get(assessment.questionnaire_id)
@@ -247,8 +228,14 @@ class AssessmentService:
         return questionnaire
 
     def _view(self, assessment: Assessment) -> AssessmentView:
-        questionnaire = self._questionnaire_for(assessment)
-        return AssessmentView.from_assessment(
-            assessment,
-            tuple(item.id for item in questionnaire.items),
+        try:
+            return assessment.view(self._questionnaire_for(assessment))
+        except AssessmentStateError as error:
+            raise AssessmentNotFound(str(error)) from error
+
+    @staticmethod
+    def _is_expired(assessment: Assessment, now: datetime) -> bool:
+        return (
+            assessment.status is AssessmentStatus.ACTIVE
+            and now - assessment.updated_at >= timedelta(days=30)
         )

@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     port: int = 8080
     retention_mode: Literal["background", "external"] = "background"
     webhook_setup_mode: Literal["startup", "external"] = "startup"
+    storage_mode: Literal["remote", "shadow", "authoritative"] = "remote"
+    local_database_url: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -44,6 +46,11 @@ class Settings(BaseSettings):
                 raise ValueError("OCEAN_WEBHOOK_SECRET must contain at least 32 characters")
         if len(self.analytics_pepper.get_secret_value()) < 16:
             raise ValueError("OCEAN_ANALYTICS_PEPPER must contain at least 16 characters")
+        if self.storage_mode != "remote":
+            if self.local_database_url is None:
+                raise ValueError("OCEAN_LOCAL_DATABASE_URL is required for local storage modes")
+            if not self.local_database_url.startswith("sqlite+aiosqlite:///"):
+                raise ValueError("OCEAN_LOCAL_DATABASE_URL must use sqlite+aiosqlite")
         return self
 
     @property
@@ -57,3 +64,7 @@ class Settings(BaseSettings):
     @property
     def configure_webhook_on_startup(self) -> bool:
         return self.webhook_setup_mode == "startup"
+
+    @property
+    def local_storage_enabled(self) -> bool:
+        return self.storage_mode != "remote"

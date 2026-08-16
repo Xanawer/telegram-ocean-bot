@@ -1,0 +1,857 @@
+{
+  "id": "ipip-120",
+  "version": "1.0.0",
+  "title": "IPIP-NEO-120 Big Five",
+  "estimated_minutes": [
+    18,
+    25
+  ],
+  "source_urls": [
+    "https://ipip.ori.org/newTheIPIP-NEO-120-itemInventory.htm",
+    "https://ipip.ori.org/newNEOKey.htm",
+    "https://osf.io/tbmh5/"
+  ],
+  "order_note": "Johnson IPIP-NEO-120 order: four items for each of the 30 NEO facets, interleaved across domains. Reverse-keyed items are scored in the positive direction.",
+  "items": [
+    {
+      "id": "ipip120-001",
+      "text": "Worry about things.",
+      "trait": "neuroticism",
+      "facet": "Anxiety",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-002",
+      "text": "Make friends easily.",
+      "trait": "extraversion",
+      "facet": "Friendliness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-003",
+      "text": "Have a vivid imagination.",
+      "trait": "openness",
+      "facet": "Imagination",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-004",
+      "text": "Trust others.",
+      "trait": "agreeableness",
+      "facet": "Trust",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-005",
+      "text": "Complete tasks successfully.",
+      "trait": "conscientiousness",
+      "facet": "Self-Efficacy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-006",
+      "text": "Get angry easily.",
+      "trait": "neuroticism",
+      "facet": "Anger",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-007",
+      "text": "Love large parties.",
+      "trait": "extraversion",
+      "facet": "Gregariousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-008",
+      "text": "Believe in the importance of art.",
+      "trait": "openness",
+      "facet": "Artistic Interests",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-009",
+      "text": "Use others for my own ends.",
+      "trait": "agreeableness",
+      "facet": "Morality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-010",
+      "text": "Like to tidy up.",
+      "trait": "conscientiousness",
+      "facet": "Orderliness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-011",
+      "text": "Often feel blue.",
+      "trait": "neuroticism",
+      "facet": "Depression",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-012",
+      "text": "Take charge.",
+      "trait": "extraversion",
+      "facet": "Assertiveness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-013",
+      "text": "Experience my emotions intensely.",
+      "trait": "openness",
+      "facet": "Emotionality",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-014",
+      "text": "Love to help others.",
+      "trait": "agreeableness",
+      "facet": "Altruism",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-015",
+      "text": "Keep my promises.",
+      "trait": "conscientiousness",
+      "facet": "Dutifulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-016",
+      "text": "Find it difficult to approach others.",
+      "trait": "neuroticism",
+      "facet": "Self-Consciousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-017",
+      "text": "Am always busy.",
+      "trait": "extraversion",
+      "facet": "Activity Level",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-018",
+      "text": "Prefer variety to routine.",
+      "trait": "openness",
+      "facet": "Adventurousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-019",
+      "text": "Love a good fight.",
+      "trait": "agreeableness",
+      "facet": "Cooperation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-020",
+      "text": "Work hard.",
+      "trait": "conscientiousness",
+      "facet": "Achievement Striving",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-021",
+      "text": "Go on binges.",
+      "trait": "neuroticism",
+      "facet": "Immoderation",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-022",
+      "text": "Love excitement.",
+      "trait": "extraversion",
+      "facet": "Excitement Seeking",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-023",
+      "text": "Love to read challenging material.",
+      "trait": "openness",
+      "facet": "Intellect",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-024",
+      "text": "Believe that I am better than others.",
+      "trait": "agreeableness",
+      "facet": "Modesty",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-025",
+      "text": "Am always prepared.",
+      "trait": "conscientiousness",
+      "facet": "Self-Discipline",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-026",
+      "text": "Panic easily.",
+      "trait": "neuroticism",
+      "facet": "Vulnerability",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-027",
+      "text": "Radiate joy.",
+      "trait": "extraversion",
+      "facet": "Cheerfulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-028",
+      "text": "Tend to vote for liberal political candidates.",
+      "trait": "openness",
+      "facet": "Liberalism",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-029",
+      "text": "Sympathize with the homeless.",
+      "trait": "agreeableness",
+      "facet": "Sympathy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-030",
+      "text": "Jump into things without thinking.",
+      "trait": "conscientiousness",
+      "facet": "Cautiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-031",
+      "text": "Fear for the worst.",
+      "trait": "neuroticism",
+      "facet": "Anxiety",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-032",
+      "text": "Feel comfortable around people.",
+      "trait": "extraversion",
+      "facet": "Friendliness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-033",
+      "text": "Enjoy wild flights of fantasy.",
+      "trait": "openness",
+      "facet": "Imagination",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-034",
+      "text": "Believe that others have good intentions.",
+      "trait": "agreeableness",
+      "facet": "Trust",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-035",
+      "text": "Excel in what I do.",
+      "trait": "conscientiousness",
+      "facet": "Self-Efficacy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-036",
+      "text": "Get irritated easily.",
+      "trait": "neuroticism",
+      "facet": "Anger",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-037",
+      "text": "Talk to a lot of different people at parties.",
+      "trait": "extraversion",
+      "facet": "Gregariousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-038",
+      "text": "See beauty in things that others might not notice.",
+      "trait": "openness",
+      "facet": "Artistic Interests",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-039",
+      "text": "Cheat to get ahead.",
+      "trait": "agreeableness",
+      "facet": "Morality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-040",
+      "text": "Often forget to put things back in their proper place.",
+      "trait": "conscientiousness",
+      "facet": "Orderliness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-041",
+      "text": "Dislike myself.",
+      "trait": "neuroticism",
+      "facet": "Depression",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-042",
+      "text": "Try to lead others.",
+      "trait": "extraversion",
+      "facet": "Assertiveness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-043",
+      "text": "Feel others' emotions.",
+      "trait": "openness",
+      "facet": "Emotionality",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-044",
+      "text": "Am concerned about others.",
+      "trait": "agreeableness",
+      "facet": "Altruism",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-045",
+      "text": "Tell the truth.",
+      "trait": "conscientiousness",
+      "facet": "Dutifulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-046",
+      "text": "Am afraid to draw attention to myself.",
+      "trait": "neuroticism",
+      "facet": "Self-Consciousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-047",
+      "text": "Am always on the go.",
+      "trait": "extraversion",
+      "facet": "Activity Level",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-048",
+      "text": "Prefer to stick with things that I know.",
+      "trait": "openness",
+      "facet": "Adventurousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-049",
+      "text": "Yell at people.",
+      "trait": "agreeableness",
+      "facet": "Cooperation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-050",
+      "text": "Do more than what's expected of me.",
+      "trait": "conscientiousness",
+      "facet": "Achievement Striving",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-051",
+      "text": "Rarely overindulge.",
+      "trait": "neuroticism",
+      "facet": "Immoderation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-052",
+      "text": "Seek adventure.",
+      "trait": "extraversion",
+      "facet": "Excitement Seeking",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-053",
+      "text": "Avoid philosophical discussions.",
+      "trait": "openness",
+      "facet": "Intellect",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-054",
+      "text": "Think highly of myself.",
+      "trait": "agreeableness",
+      "facet": "Modesty",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-055",
+      "text": "Carry out my plans.",
+      "trait": "conscientiousness",
+      "facet": "Self-Discipline",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-056",
+      "text": "Become overwhelmed by events.",
+      "trait": "neuroticism",
+      "facet": "Vulnerability",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-057",
+      "text": "Have a lot of fun.",
+      "trait": "extraversion",
+      "facet": "Cheerfulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-058",
+      "text": "Believe that there is no absolute right and wrong.",
+      "trait": "openness",
+      "facet": "Liberalism",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-059",
+      "text": "Feel sympathy for those who are worse off than myself.",
+      "trait": "agreeableness",
+      "facet": "Sympathy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-060",
+      "text": "Make rash decisions.",
+      "trait": "conscientiousness",
+      "facet": "Cautiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-061",
+      "text": "Am afraid of many things.",
+      "trait": "neuroticism",
+      "facet": "Anxiety",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-062",
+      "text": "Avoid contacts with others.",
+      "trait": "extraversion",
+      "facet": "Friendliness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-063",
+      "text": "Love to daydream.",
+      "trait": "openness",
+      "facet": "Imagination",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-064",
+      "text": "Trust what people say.",
+      "trait": "agreeableness",
+      "facet": "Trust",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-065",
+      "text": "Handle tasks smoothly.",
+      "trait": "conscientiousness",
+      "facet": "Self-Efficacy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-066",
+      "text": "Lose my temper.",
+      "trait": "neuroticism",
+      "facet": "Anger",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-067",
+      "text": "Prefer to be alone.",
+      "trait": "extraversion",
+      "facet": "Gregariousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-068",
+      "text": "Do not like poetry.",
+      "trait": "openness",
+      "facet": "Artistic Interests",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-069",
+      "text": "Take advantage of others.",
+      "trait": "agreeableness",
+      "facet": "Morality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-070",
+      "text": "Leave a mess in my room.",
+      "trait": "conscientiousness",
+      "facet": "Orderliness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-071",
+      "text": "Am often down in the dumps.",
+      "trait": "neuroticism",
+      "facet": "Depression",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-072",
+      "text": "Take control of things.",
+      "trait": "extraversion",
+      "facet": "Assertiveness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-073",
+      "text": "Rarely notice my emotional reactions.",
+      "trait": "openness",
+      "facet": "Emotionality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-074",
+      "text": "Am indifferent to the feelings of others.",
+      "trait": "agreeableness",
+      "facet": "Altruism",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-075",
+      "text": "Break rules.",
+      "trait": "conscientiousness",
+      "facet": "Dutifulness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-076",
+      "text": "Only feel comfortable with friends.",
+      "trait": "neuroticism",
+      "facet": "Self-Consciousness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-077",
+      "text": "Do a lot in my spare time.",
+      "trait": "extraversion",
+      "facet": "Activity Level",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-078",
+      "text": "Dislike changes.",
+      "trait": "openness",
+      "facet": "Adventurousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-079",
+      "text": "Insult people.",
+      "trait": "agreeableness",
+      "facet": "Cooperation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-080",
+      "text": "Do just enough work to get by.",
+      "trait": "conscientiousness",
+      "facet": "Achievement Striving",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-081",
+      "text": "Easily resist temptations.",
+      "trait": "neuroticism",
+      "facet": "Immoderation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-082",
+      "text": "Enjoy being reckless.",
+      "trait": "extraversion",
+      "facet": "Excitement Seeking",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-083",
+      "text": "Have difficulty understanding abstract ideas.",
+      "trait": "openness",
+      "facet": "Intellect",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-084",
+      "text": "Have a high opinion of myself.",
+      "trait": "agreeableness",
+      "facet": "Modesty",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-085",
+      "text": "Waste my time.",
+      "trait": "conscientiousness",
+      "facet": "Self-Discipline",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-086",
+      "text": "Feel that I'm unable to deal with things.",
+      "trait": "neuroticism",
+      "facet": "Vulnerability",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-087",
+      "text": "Love life.",
+      "trait": "extraversion",
+      "facet": "Cheerfulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-088",
+      "text": "Tend to vote for conservative political candidates.",
+      "trait": "openness",
+      "facet": "Liberalism",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-089",
+      "text": "Am not interested in other people's problems.",
+      "trait": "agreeableness",
+      "facet": "Sympathy",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-090",
+      "text": "Rush into things.",
+      "trait": "conscientiousness",
+      "facet": "Cautiousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-091",
+      "text": "Get stressed out easily.",
+      "trait": "neuroticism",
+      "facet": "Anxiety",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-092",
+      "text": "Keep others at a distance.",
+      "trait": "extraversion",
+      "facet": "Friendliness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-093",
+      "text": "Like to get lost in thought.",
+      "trait": "openness",
+      "facet": "Imagination",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-094",
+      "text": "Distrust people.",
+      "trait": "agreeableness",
+      "facet": "Trust",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-095",
+      "text": "Know how to get things done.",
+      "trait": "conscientiousness",
+      "facet": "Self-Efficacy",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-096",
+      "text": "Am not easily annoyed.",
+      "trait": "neuroticism",
+      "facet": "Anger",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-097",
+      "text": "Avoid crowds.",
+      "trait": "extraversion",
+      "facet": "Gregariousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-098",
+      "text": "Do not enjoy going to art museums.",
+      "trait": "openness",
+      "facet": "Artistic Interests",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-099",
+      "text": "Obstruct others' plans.",
+      "trait": "agreeableness",
+      "facet": "Morality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-100",
+      "text": "Leave my belongings around.",
+      "trait": "conscientiousness",
+      "facet": "Orderliness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-101",
+      "text": "Feel comfortable with myself.",
+      "trait": "neuroticism",
+      "facet": "Depression",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-102",
+      "text": "Wait for others to lead the way.",
+      "trait": "extraversion",
+      "facet": "Assertiveness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-103",
+      "text": "Don't understand people who get emotional.",
+      "trait": "openness",
+      "facet": "Emotionality",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-104",
+      "text": "Take no time for others.",
+      "trait": "agreeableness",
+      "facet": "Altruism",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-105",
+      "text": "Break my promises.",
+      "trait": "conscientiousness",
+      "facet": "Dutifulness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-106",
+      "text": "Am not bothered by difficult social situations.",
+      "trait": "neuroticism",
+      "facet": "Self-Consciousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-107",
+      "text": "Like to take it easy.",
+      "trait": "extraversion",
+      "facet": "Activity Level",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-108",
+      "text": "Am attached to conventional ways.",
+      "trait": "openness",
+      "facet": "Adventurousness",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-109",
+      "text": "Get back at others.",
+      "trait": "agreeableness",
+      "facet": "Cooperation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-110",
+      "text": "Put little time and effort into my work.",
+      "trait": "conscientiousness",
+      "facet": "Achievement Striving",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-111",
+      "text": "Am able to control my cravings.",
+      "trait": "neuroticism",
+      "facet": "Immoderation",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-112",
+      "text": "Act wild and crazy.",
+      "trait": "extraversion",
+      "facet": "Excitement Seeking",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-113",
+      "text": "Am not interested in theoretical discussions.",
+      "trait": "openness",
+      "facet": "Intellect",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-114",
+      "text": "Boast about my virtues.",
+      "trait": "agreeableness",
+      "facet": "Modesty",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-115",
+      "text": "Have difficulty starting tasks.",
+      "trait": "conscientiousness",
+      "facet": "Self-Discipline",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-116",
+      "text": "Remain calm under pressure.",
+      "trait": "neuroticism",
+      "facet": "Vulnerability",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-117",
+      "text": "Look at the bright side of life.",
+      "trait": "extraversion",
+      "facet": "Cheerfulness",
+      "reverse": false
+    },
+    {
+      "id": "ipip120-118",
+      "text": "Believe that we should be tough on crime.",
+      "trait": "openness",
+      "facet": "Liberalism",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-119",
+      "text": "Try not to think about the needy.",
+      "trait": "agreeableness",
+      "facet": "Sympathy",
+      "reverse": true
+    },
+    {
+      "id": "ipip120-120",
+      "text": "Act without thinking.",
+      "trait": "conscientiousness",
+      "facet": "Cautiousness",
+      "reverse": true
+    }
+  ]
+}
