@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict, deque
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from time import monotonic
 from typing import Any
@@ -16,7 +16,7 @@ class UserActionLocks:
         self._locks: dict[int, asyncio.Lock] = {}
 
     @asynccontextmanager
-    async def hold(self, user_id: int) -> AsyncIterator[None]:
+    async def hold(self, user_id: int) -> AsyncGenerator[None, None]:
         lock = self._locks.setdefault(user_id, asyncio.Lock())
         async with lock:
             yield
