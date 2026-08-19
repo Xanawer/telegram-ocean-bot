@@ -9,7 +9,7 @@ from enum import StrEnum
 from functools import partial
 from uuid import uuid4
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -270,14 +270,21 @@ class SyncOutboxRepository:
         ]
 
     async def acknowledge(self, job: SyncJob) -> None:
-        async with self._sessions() as session, session.begin():
-            await session.execute(
-                delete(SyncOutboxModel).where(
-                    SyncOutboxModel.kind == job.kind,
-                    SyncOutboxModel.entity_id == job.entity_id,
-                    SyncOutboxModel.revision == job.revision,
-                )
+        await self.acknowledge_many([job])
+
+    async def acknowledge_many(self, jobs: list[SyncJob]) -> None:
+        if not jobs:
+            return
+        conditions = [
+            and_(
+                SyncOutboxModel.kind == job.kind,
+                SyncOutboxModel.entity_id == job.entity_id,
+                SyncOutboxModel.revision == job.revision,
             )
+            for job in jobs
+        ]
+        async with self._sessions() as session, session.begin():
+            await session.execute(delete(SyncOutboxModel).where(or_(*conditions)))
 
     async def fail(self, job: SyncJob, now: datetime) -> None:
         async with self._sessions() as session, session.begin():
@@ -666,13 +673,15 @@ class SyncService:
         failed = 0
         local_rights = self._local_rights
         remote_rights = self._remote_rights
-        for job in [job for job in jobs if job.kind is SyncJobKind.DELETE_USER]:
+        delete_jobs = [job for job in jobs if job.kind is SyncJobKind.DELETE_USER]
+        delete_acknowledged: list[SyncJob] = []
+        for job in delete_jobs:
             if local_rights is None or remote_rights is None:
-                await self._outbox.acknowledge(job)
+                delete_acknowledged.append(job)
                 continue
             user_ref = await local_rights.deletion_user_ref(int(job.entity_id))
             if user_ref is None:
-                await self._outbox.acknowledge(job)
+                delete_acknowledged.append(job)
                 continue
             try:
                 await _retry_disconnect(
@@ -684,7 +693,7 @@ class SyncService:
                 )
                 await local_rights.purge_user_data(int(job.entity_id), user_ref)
                 await local_rights.finalize_deletion(int(job.entity_id))
-                await self._outbox.acknowledge(job)
+                delete_acknowledged.append(job)
             except Exception as error:
                 failed += 1
                 await self._outbox.fail(job, effective_now)
@@ -692,6 +701,7 @@ class SyncService:
                     "sync_batch_failed kind=delete_user error=%s",
                     type(error).__name__,
                 )
+        await self._outbox.acknowledge_many(delete_acknowledged)
         user_jobs = [job for job in jobs if job.kind is SyncJobKind.USER]
         user_records: list[UserRecord] = []
         for job in user_jobs:
@@ -700,8 +710,7 @@ class SyncService:
                 user_records.append(user)
         try:
             await _retry_disconnect(lambda: self._remote_assessments.import_users(user_records))
-            for job in user_jobs:
-                await self._outbox.acknowledge(job)
+            await self._outbox.acknowledge_many(user_jobs)
             users = len(user_records)
         except Exception as error:
             failed += len(user_jobs)
@@ -735,7 +744,7 @@ class SyncService:
                         stored.assessment.id,
                         stored.assessment.telegram_user_id,
                     )
-                await self._outbox.acknowledge(job)
+            await self._outbox.acknowledge_many(assessment_jobs)
             assessments = len(assessment_records)
         except Exception as error:
             failed += len(assessment_jobs)
@@ -760,8 +769,7 @@ class SyncService:
             await self._local_analytics.delete_events(
                 [record.event_id for record in analytics_records]
             )
-            for job in analytics_jobs:
-                await self._outbox.acknowledge(job)
+            await self._outbox.acknowledge_many(analytics_jobs)
         except Exception as error:
             failed += len(analytics_jobs)
             for job in analytics_jobs:

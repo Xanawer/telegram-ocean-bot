@@ -10,6 +10,11 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
+from ocean_bot.telegram.delivery import TelegramDelivery
+
+_callback_delivery = TelegramDelivery(max_per_second=50)
+_message_delivery = TelegramDelivery(max_per_second=25)
+
 
 class UserActionLocks:
     def __init__(self) -> None:
@@ -52,9 +57,17 @@ class RateLimitMiddleware(BaseMiddleware):
             timestamps.popleft()
         if len(timestamps) >= self._limit:
             if isinstance(event, CallbackQuery):
-                await event.answer("Too many requests. Please wait a moment.", show_alert=True)
+                await _callback_delivery.call(
+                    lambda: event.answer(
+                        "Too many requests. Please wait a moment.", show_alert=True
+                    ),
+                    "callback.answer.rate_limit",
+                )
             elif isinstance(event, Message):
-                await event.answer("Too many requests. Please wait a moment.")
+                await _message_delivery.call(
+                    lambda: event.answer("Too many requests. Please wait a moment."),
+                    "message.answer.rate_limit",
+                )
             return None
         timestamps.append(now)
         return await handler(event, data)

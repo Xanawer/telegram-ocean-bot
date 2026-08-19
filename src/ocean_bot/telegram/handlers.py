@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from functools import partial
 from time import perf_counter
 
 from aiogram import Router
@@ -28,9 +29,12 @@ from ocean_bot.application.interactions import (
     TextFormat,
 )
 from ocean_bot.telegram.callbacks import decode_callback, encode_callback
+from ocean_bot.telegram.delivery import TelegramDelivery
 from ocean_bot.telegram.middleware import UserActionLocks
 
 _logger = logging.getLogger(__name__)
+_callback_delivery = TelegramDelivery(max_per_second=50)
+_message_delivery = TelegramDelivery(max_per_second=25)
 
 
 def create_router() -> Router:
@@ -89,7 +93,7 @@ async def handle_callback(
     started = perf_counter()
     try:
         intent = decode_callback(callback.data)
-        await callback.answer()
+        await _callback_delivery.call(partial(callback.answer), "callback.answer")
         acknowledged = perf_counter()
         locks = action_locks or UserActionLocks()
         async with locks.hold(callback.from_user.id):
@@ -101,7 +105,10 @@ async def handle_callback(
                 datetime.now(UTC),
             )
     except (TypeError, ValueError) as error:
-        await callback.answer(str(error), show_alert=True)
+        await _callback_delivery.call(
+            partial(callback.answer, str(error), show_alert=True),
+            "callback.answer.alert",
+        )
         return
     dispatched = perf_counter()
     await _deliver_callback(callback, outcome)
@@ -176,9 +183,13 @@ async def _dispatch_callback(
 async def export_command(message: Message, data_rights: UserDataRights) -> None:
     user_id, _ = _require_user(message)
     export = await data_rights.export_user(user_id)
-    await message.answer_document(
-        BufferedInputFile(export.json_bytes(), filename="ocean-bot-export.json"),
-        caption="Your stored assessment data.",
+    await _message_delivery.call(
+        partial(
+            message.answer_document,
+            BufferedInputFile(export.json_bytes(), filename="ocean-bot-export.json"),
+            caption="Your stored assessment data.",
+        ),
+        "message.answer_document",
     )
 
 
@@ -203,19 +214,27 @@ async def delete_command(message: Message) -> None:
 
 
 async def privacy_command(message: Message, privacy_contact: str) -> None:
-    await message.answer(
-        PRIVACY_SUMMARY
-        + "\n\nAssessment history remains until /delete_me. Raw analytics are kept for 90 "
-        "days and sanitized error logs for 30 days. Anonymous counters may remain. "
-        "Use /export to access your data or /delete_me to erase it. Contact: "
-        + privacy_contact
+    await _message_delivery.call(
+        partial(
+            message.answer,
+            PRIVACY_SUMMARY
+            + "\n\nAssessment history remains until /delete_me. Raw analytics are kept for 90 "
+            "days and sanitized error logs for 30 days. Anonymous counters may remain. "
+            "Use /export to access your data or /delete_me to erase it. Contact: "
+            + privacy_contact,
+        ),
+        "message.answer",
     )
 
 
 async def help_command(message: Message) -> None:
-    await message.answer(
-        "/test - start or resume\n/results - latest result\n/export - download your data\n"
-        "/delete_me - erase your data\n/privacy - privacy details\n/help - this message"
+    await _message_delivery.call(
+        partial(
+            message.answer,
+            "/test - start or resume\n/results - latest result\n/export - download your data\n"
+            "/delete_me - erase your data\n/privacy - privacy details\n/help - this message",
+        ),
+        "message.answer",
     )
 
 
@@ -226,21 +245,28 @@ async def admin_stats_command(
 ) -> None:
     user_id, _ = _require_user(message)
     if user_id != admin_user_id:
-        await message.answer("Command not available.")
+        await _message_delivery.call(
+            partial(message.answer, "Command not available."),
+            "message.answer",
+        )
         return
     stats = await analytics.stats()
     text = "Aggregate events\n" + "\n".join(
         f"{name}: {count}" for name, count in sorted(stats.items())
     )
-    await message.answer(text)
+    await _message_delivery.call(partial(message.answer, text), "message.answer")
 
 
 async def _deliver_message(message: Message, outcome: InteractionOutcome) -> None:
     for reply in outcome.replies:
-        await message.answer(
-            reply.text,
-            reply_markup=_markup(reply),
-            parse_mode=_parse_mode(reply),
+        await _message_delivery.call(
+            partial(
+                message.answer,
+                reply.text,
+                reply_markup=_markup(reply),
+                parse_mode=_parse_mode(reply),
+            ),
+            "message.answer",
         )
 
 
@@ -252,25 +278,40 @@ async def _deliver_callback(
         for reply in outcome.replies:
             markup = _markup(reply)
             if reply.delivery is Delivery.EDIT:
-                await callback.message.edit_text(
-                    reply.text,
-                    reply_markup=markup,
-                    parse_mode=_parse_mode(reply),
+                await _message_delivery.call(
+                    partial(
+                        callback.message.edit_text,
+                        reply.text,
+                        reply_markup=markup,
+                        parse_mode=_parse_mode(reply),
+                    ),
+                    "message.edit_text",
                 )
             elif reply.delivery is Delivery.REPLY:
-                await callback.message.reply(
-                    reply.text,
-                    reply_markup=markup,
-                    parse_mode=_parse_mode(reply),
+                await _message_delivery.call(
+                    partial(
+                        callback.message.reply,
+                        reply.text,
+                        reply_markup=markup,
+                        parse_mode=_parse_mode(reply),
+                    ),
+                    "message.reply",
                 )
             else:
-                await callback.message.answer(
-                    reply.text,
-                    reply_markup=markup,
-                    parse_mode=_parse_mode(reply),
+                await _message_delivery.call(
+                    partial(
+                        callback.message.answer,
+                        reply.text,
+                        reply_markup=markup,
+                        parse_mode=_parse_mode(reply),
+                    ),
+                    "message.answer",
                 )
         if not outcome.replies and outcome.callback_notice is not None:
-            await callback.message.reply(outcome.callback_notice)
+            await _message_delivery.call(
+                partial(callback.message.reply, outcome.callback_notice),
+                "message.reply",
+            )
 
 
 def _markup(reply: InteractionReply) -> InlineKeyboardMarkup | None:

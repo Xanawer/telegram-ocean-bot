@@ -58,6 +58,7 @@ from ocean_bot.telegram.handlers import create_router
 from ocean_bot.telegram.middleware import RateLimitMiddleware, UserActionLocks
 
 _WEBHOOK_PATH = "/telegram/webhook"
+_POLLING_TASK_CONCURRENCY = 200
 _logger = logging.getLogger(__name__)
 
 
@@ -161,6 +162,7 @@ class Runtime:
             await modules.dispatcher.start_polling(
                 modules.bot,
                 close_bot_session=False,
+                tasks_concurrency_limit=_POLLING_TASK_CONCURRENCY,
             )
         finally:
             if retention_task is not None:

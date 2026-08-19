@@ -158,6 +158,26 @@ async def test_failed_outbox_job_observes_backoff_after_hard_deadline(
     await engine.dispose()
 
 
+async def test_outbox_acknowledges_jobs_in_one_batch(tmp_path: Path) -> None:
+    engine, sessions = await _database(tmp_path / "local.db")
+    outbox = SyncOutboxRepository(sessions)
+    analytics = AnalyticsService(
+        SqlAnalyticsRepository(sessions, outbox=outbox),
+        UserReferences("long-test-pepper"),
+    )
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    await analytics.record(42, "answer_recorded", now)
+    await analytics.record(43, "answer_recorded", now)
+    jobs = await outbox.pending(now)
+    assert len(jobs) == 2
+
+    await outbox.acknowledge_many(jobs)
+
+    assert await outbox.pending_count() == 0
+    await engine.dispose()
+
+
 async def test_authoritative_analytics_honors_local_volume_write_guard(
     tmp_path: Path,
 ) -> None:

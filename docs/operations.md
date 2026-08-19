@@ -44,6 +44,23 @@ upserts and analytics every second. A Supabase outage does not interrupt active 
 alert when pending data is 15 minutes old, block new assessments after 24 hours, and stop
 new writes when volume use reaches 90 percent.
 
+### Concurrency test harness
+
+Run the synthetic harness locally before any platform test. It uses temporary SQLite
+databases and a synthetic Telegram flood limit; it never contacts Telegram or Supabase:
+
+```text
+.venv/bin/python -u scripts/load_test.py --rate 25 --duration 5 --users 200 --telegram-rate 30 --delivery-rate 25
+.venv/bin/python -u scripts/load_test.py --rate 50 --duration 5 --users 200 --telegram-rate 30 --delivery-rate 25
+.venv/bin/python -u scripts/load_test.py --rate 75 --duration 5 --users 200 --telegram-rate 30 --delivery-rate 25
+```
+
+Record callback p95, SQLite errors, Telegram throttles, and maximum/final sync backlog.
+The delivery rate should remain below the synthetic Telegram limit when measuring
+backpressure. A Railway test must use a separate staging service, persistent volume,
+Supabase database, and BotFather token; do not inject synthetic updates into the
+production long-polling service.
+
 Before rollback, stop accepting callbacks and run `python -m ocean_bot sync`. Proceed only
 when `remaining` and `failed` are both zero, then set `OCEAN_STORAGE_MODE=remote`. An empty
 or lost authoritative volume is not an automatic failover condition: stop the bot, restore
