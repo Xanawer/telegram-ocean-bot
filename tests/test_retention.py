@@ -17,9 +17,7 @@ async def test_retention_applies_policy_and_reports_completed_work() -> None:
     result = await retention.run(now)
 
     assert result == RetentionResult(expired_assessments=2, purged_analytics_events=7)
-    assessments.expire_incomplete_before.assert_awaited_once_with(
-        now - timedelta(days=30), now
-    )
+    assessments.expire_incomplete_before.assert_awaited_once_with(now - timedelta(days=30), now)
     analytics.purge_before.assert_awaited_once_with(now - timedelta(days=90))
 
 

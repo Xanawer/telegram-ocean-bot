@@ -20,6 +20,7 @@ class TelegramDelivery:
         max_in_flight: int = 20,
         max_retries: int = 3,
         max_per_second: float | None = None,
+        max_retry_after: float = 10.0,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         if max_in_flight < 1:
@@ -30,6 +31,7 @@ class TelegramDelivery:
             raise ValueError("max_per_second must be positive when configured")
         self._semaphore = asyncio.Semaphore(max_in_flight)
         self._max_retries = max_retries
+        self._max_retry_after = max_retry_after
         self._rate_interval = 1 / max_per_second if max_per_second is not None else None
         self._rate_lock = asyncio.Lock()
         self._next_rate_slot = 0.0
@@ -46,9 +48,11 @@ class TelegramDelivery:
                     await self._wait_for_rate_slot()
                     return await operation()
             except TelegramRetryAfter as error:
-                if attempt >= self._max_retries:
-                    raise
                 delay = max(0.0, float(error.retry_after))
+                # Callers deliver while holding the user's action lock; a long flood-control
+                # wait would block every later action by that user, so give up instead.
+                if attempt >= self._max_retries or delay > self._max_retry_after:
+                    raise
                 _logger.warning(
                     "telegram_retry_after operation=%s retry_after_s=%.1f attempt=%d",
                     operation_name,

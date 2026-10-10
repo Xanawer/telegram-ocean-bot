@@ -90,7 +90,7 @@ class Assessment:
         expected = questionnaire.items[len(self.answers)].id
         if item_id != expected:
             raise AssessmentStateError("This question is no longer active")
-        if isinstance(value, bool) or not 1 <= value <= 5:
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 5:
             raise ValueError("Answers must be integers from 1 to 5")
 
         next_answers = (*self.answers, (item_id, value))

@@ -11,14 +11,14 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from ocean_bot.infrastructure.database import Base
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and "database_url" not in config.attributes:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 url = config.attributes.get("database_url") or os.environ.get("OCEAN_DATABASE_URL")
 if url:
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    config.set_main_option("sqlalchemy.url", url)
+    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
@@ -40,6 +40,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        hide_parameters=True,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

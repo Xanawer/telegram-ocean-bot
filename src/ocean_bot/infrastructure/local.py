@@ -44,7 +44,7 @@ class LocalStorageGuard:
 def create_local_engine(database_url: str) -> AsyncEngine:
     if not database_url.startswith("sqlite+aiosqlite:///"):
         raise ValueError("Local storage must use sqlite+aiosqlite")
-    engine = create_async_engine(database_url, pool_pre_ping=False)
+    engine = create_async_engine(database_url, pool_pre_ping=False, hide_parameters=True)
 
     @event.listens_for(engine.sync_engine, "connect")
     def configure_connection(dbapi_connection: object, _: object) -> None:

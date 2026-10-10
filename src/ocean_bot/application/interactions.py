@@ -131,7 +131,10 @@ class AssessmentInteraction:
         language_code: str | None,
         now: datetime,
     ) -> InteractionOutcome:
-        await self._assessments.accept_terms(telegram_user_id, language_code, now)
+        try:
+            await self._assessments.accept_terms(telegram_user_id, language_code, now)
+        except StorageUnavailable as error:
+            return self._alert(str(error))
         await self._record(telegram_user_id, "consent_accepted", now)
         return InteractionOutcome(
             (self._mode_reply(Delivery.EDIT),),
@@ -232,7 +235,11 @@ class AssessmentInteraction:
         return InteractionOutcome((reply,))
 
     async def back(
-        self, telegram_user_id: int, assessment_id: str, now: datetime
+        self,
+        telegram_user_id: int,
+        assessment_id: str,
+        now: datetime,
+        expected_answered: int | None = None,
     ) -> InteractionOutcome:
         event_factory: AssessmentEventFactory | None = None
         if self._transition_analytics_persisted:
@@ -243,6 +250,7 @@ class AssessmentInteraction:
                 assessment_id,
                 now,
                 event_factory,
+                expected_answered,
             )
         except (AssessmentNotFound, StaleInput, StorageUnavailable) as error:
             return self._alert(str(error))
@@ -410,7 +418,12 @@ class AssessmentInteraction:
         )
         navigation: list[InteractionButton] = []
         if assessment.answered_count:
-            navigation.append(InteractionButton("← Back", CallbackIntent("back", (assessment.id,))))
+            navigation.append(
+                InteractionButton(
+                    "← Back",
+                    CallbackIntent("back", (assessment.id, str(assessment.answered_count))),
+                )
+            )
         navigation.append(InteractionButton("Cancel", CallbackIntent("cancel", (assessment.id,))))
         return InteractionReply(
             text,

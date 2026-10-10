@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from functools import partial
 from time import perf_counter
 
-from aiogram import Router
-from aiogram.enums import ParseMode
+from aiogram import F, Router
+from aiogram.enums import ChatType, ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BufferedInputFile,
@@ -30,15 +30,25 @@ from ocean_bot.application.interactions import (
 )
 from ocean_bot.telegram.callbacks import decode_callback, encode_callback
 from ocean_bot.telegram.delivery import TelegramDelivery
-from ocean_bot.telegram.middleware import UserActionLocks
+from ocean_bot.telegram.middleware import UserActionLockMiddleware, UserActionLocks
 
 _logger = logging.getLogger(__name__)
 _callback_delivery = TelegramDelivery(max_per_second=50)
 _message_delivery = TelegramDelivery(max_per_second=25)
 
 
+_COMMANDS = ("test", "results", "export", "delete_me", "privacy", "help", "admin_stats")
+
+
 def create_router() -> Router:
     router = Router(name="ocean-bot")
+    router.message.middleware(UserActionLockMiddleware())
+    # Replies carry personal answers and exports, so only private chats are served.
+    router.message.register(
+        private_chat_required,
+        F.chat.type != ChatType.PRIVATE,
+        Command("start", *_COMMANDS),
+    )
     router.message.register(start_command, CommandStart())
     router.message.register(test_command, Command("test"))
     router.message.register(results_command, Command("results"))
@@ -47,8 +57,28 @@ def create_router() -> Router:
     router.message.register(privacy_command, Command("privacy"))
     router.message.register(help_command, Command("help"))
     router.message.register(admin_stats_command, Command("admin_stats"))
-    router.callback_query.register(handle_callback)
+    router.callback_query.register(handle_callback, F.message.chat.type == ChatType.PRIVATE)
+    # Anything else, including inline-mode callbacks that carry no message, is refused.
+    router.callback_query.register(private_callback_required)
     return router
+
+
+async def private_chat_required(message: Message) -> None:
+    await _message_delivery.call(
+        partial(message.answer, "For your privacy, please message me in a private chat."),
+        "message.answer",
+    )
+
+
+async def private_callback_required(callback: CallbackQuery) -> None:
+    await _callback_delivery.call(
+        partial(
+            callback.answer,
+            "For your privacy, please use this bot in a private chat.",
+            show_alert=True,
+        ),
+        "callback.answer.alert",
+    )
 
 
 def _require_user(message: Message) -> tuple[int, str | None]:
@@ -96,6 +126,8 @@ async def handle_callback(
         await _callback_delivery.call(partial(callback.answer), "callback.answer")
         acknowledged = perf_counter()
         locks = action_locks or UserActionLocks()
+        # Deliver while still holding the user's lock, so a delayed or retried edit
+        # cannot land after, and overwrite, the response to a later callback.
         async with locks.hold(callback.from_user.id):
             outcome = await _dispatch_callback(
                 callback,
@@ -104,14 +136,14 @@ async def handle_callback(
                 data_rights,
                 datetime.now(UTC),
             )
+            dispatched = perf_counter()
+            await _deliver_callback(callback, outcome)
     except (TypeError, ValueError) as error:
         await _callback_delivery.call(
             partial(callback.answer, str(error), show_alert=True),
             "callback.answer.alert",
         )
         return
-    dispatched = perf_counter()
-    await _deliver_callback(callback, outcome)
     delivered = perf_counter()
     _logger.info(
         "callback_latency action=%s ack_ms=%.1f dispatch_ms=%.1f delivery_ms=%.1f total_ms=%.1f",
@@ -132,20 +164,20 @@ async def _dispatch_callback(
 ) -> InteractionOutcome:
     user_id = callback.from_user.id
     if intent.action == "consent.accept":
-        return await interaction.accept_consent(
-            user_id, callback.from_user.language_code, now
-        )
+        return await interaction.accept_consent(user_id, callback.from_user.language_code, now)
     if intent.action == "consent.decline":
         return interaction.decline_consent()
     if intent.action == "mode":
         return await interaction.choose_mode(user_id, _single_value(intent), now)
     if intent.action == "answer":
         assessment_id, item_id, raw_value = _values(intent, 3)
-        return await interaction.answer(
-            user_id, assessment_id, item_id, int(raw_value), now
-        )
+        return await interaction.answer(user_id, assessment_id, item_id, int(raw_value), now)
     if intent.action == "back":
-        return await interaction.back(user_id, _single_value(intent), now)
+        # Keyboards sent before the answer count was added carry only the assessment ID.
+        if len(intent.values) == 1:
+            return await interaction.back(user_id, intent.values[0], now)
+        assessment_id, answered_count = _values(intent, 2)
+        return await interaction.back(user_id, assessment_id, now, int(answered_count))
     if intent.action == "cancel":
         return await interaction.cancel(user_id, _single_value(intent), now)
     if intent.action == "history.page":
@@ -162,9 +194,7 @@ async def _dispatch_callback(
         try:
             await data_rights.delete_user(user_id)
         except DataRightsUnavailable as error:
-            return InteractionOutcome(
-                (InteractionReply(str(error), delivery=Delivery.EDIT),)
-            )
+            return InteractionOutcome((InteractionReply(str(error), delivery=Delivery.EDIT),))
         return InteractionOutcome(
             (
                 InteractionReply(

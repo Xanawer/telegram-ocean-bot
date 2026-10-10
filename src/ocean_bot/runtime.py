@@ -5,6 +5,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -45,6 +46,7 @@ from ocean_bot.infrastructure.replication import (
     LocalFirstAssessmentRepository,
     LocalFirstUserDataRightsRepository,
     MirroringAnalyticsRepository,
+    ReplicationCoordinator,
     ReplicationMode,
     RetryingAnalyticsRepository,
     RetryingAssessmentRepository,
@@ -59,14 +61,23 @@ from ocean_bot.telegram.middleware import RateLimitMiddleware, UserActionLocks
 
 _WEBHOOK_PATH = "/telegram/webhook"
 _POLLING_TASK_CONCURRENCY = 200
+_REMOTE_QUERY_TIMEOUT_S = 15
 _logger = logging.getLogger(__name__)
 
 
 def _create_engine(database_url: str) -> AsyncEngine:
+    options: dict[str, Any] = {}
+    if database_url.startswith("postgresql+asyncpg://"):
+        # Sync batches and deletions hold the replication lock across remote queries, so a
+        # stalled query must fail instead of blocking every deletion indefinitely.
+        options["pool_timeout"] = _REMOTE_QUERY_TIMEOUT_S
+        options["connect_args"] = {"command_timeout": _REMOTE_QUERY_TIMEOUT_S}
     return create_async_engine(
         database_url,
         pool_pre_ping=False,
         pool_recycle=300,
+        hide_parameters=True,
+        **options,
     )
 
 
@@ -250,11 +261,17 @@ class Runtime:
 
             app.cleanup_ctx.append(sync_context)
         app.on_cleanup.append(cleanup)
-        SimpleRequestHandler(
+        webhook = SimpleRequestHandler(
             dispatcher=modules.dispatcher,
             bot=modules.bot,
             secret_token=self._settings.webhook_secret.get_secret_value(),
-        ).register(app, path=_WEBHOOK_PATH)
+            # Acknowledge only after the update is processed, so Telegram redelivers it
+            # if the process stops first; aiohttp drains in-flight requests on shutdown.
+            handle_in_background=False,
+        )
+        # Not webhook.register(): it closes the bot session on shutdown, before aiohttp
+        # drains in-flight requests. The cleanup hook closes it once they have finished.
+        app.router.add_route("POST", _WEBHOOK_PATH, webhook.handle)
         setup_application(app, modules.dispatcher, bot=modules.bot)
         return app
 
@@ -313,6 +330,7 @@ class Runtime:
                 storage_label="local",
             )
             local_rights = SqlUserDataRightsRepository(local_sessions, outbox=outbox)
+            coordinator = ReplicationCoordinator()
             sync_health = SyncHealth()
             assessments_repository = LocalFirstAssessmentRepository(
                 local_assessments,
@@ -321,11 +339,14 @@ class Runtime:
                 ReplicationMode(self._settings.storage_mode),
                 storage_guard,
                 sync_health,
+                local_rights,
+                coordinator,
             )
             rights_repository = LocalFirstUserDataRightsRepository(
                 local_rights,
                 remote_rights,
                 ReplicationMode(self._settings.storage_mode),
+                coordinator,
             )
             analytics_repository = (
                 AuthoritativeAnalyticsRepository(
@@ -348,11 +369,13 @@ class Runtime:
                 references,
                 local_rights,
                 remote_rights,
+                coordinator,
             )
             if self._settings.storage_mode == ReplicationMode.SHADOW.value:
                 bootstrap = LocalBootstrapService(
                     local_assessments,
                     remote_assessments,
+                    local_rights,
                 )
         else:
             assessments_repository = RetryingAssessmentRepository(remote_assessments)

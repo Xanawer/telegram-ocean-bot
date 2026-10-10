@@ -20,7 +20,7 @@ from ocean_bot.infrastructure.database import (
 )
 from ocean_bot.infrastructure.local import create_local_engine
 from ocean_bot.infrastructure.migrations import upgrade_database
-from ocean_bot.runtime import Runtime
+from ocean_bot.runtime import Runtime, _create_engine
 
 
 def _settings(database_url: str, **values: object) -> Settings:
@@ -222,3 +222,35 @@ async def test_webhook_health_checks_database_without_startup_side_effects() -> 
     assert live_body == {"status": "ok"}
     assert ready.status == 200
     assert ready_body == {"status": "ok"}
+
+
+def test_webhook_acknowledges_updates_only_after_processing() -> None:
+    settings = _settings(
+        "sqlite+aiosqlite://",
+        webhook_base_url="https://bot.example.com",
+        webhook_secret="s" * 32,
+        retention_mode="external",
+        webhook_setup_mode="external",
+    )
+    app = Runtime(settings).webhook_app()
+
+    handlers = [
+        route.handler
+        for route in app.router.routes()
+        if route.resource is not None and route.resource.canonical == "/telegram/webhook"
+    ]
+
+    assert handlers
+    assert all(handler.__self__.handle_in_background is False for handler in handlers)
+    # The bot session must outlive in-flight requests, which aiohttp drains after shutdown.
+    assert not any(
+        getattr(callback, "__self__", None) is handlers[0].__self__ for callback in app.on_shutdown
+    )
+
+
+def test_engines_redact_sql_parameters_from_errors(tmp_path: Path) -> None:
+    local = create_local_engine(f"sqlite+aiosqlite:///{tmp_path / 'local.db'}")
+    remote = _create_engine("sqlite+aiosqlite://")
+
+    assert local.sync_engine.hide_parameters is True
+    assert remote.sync_engine.hide_parameters is True

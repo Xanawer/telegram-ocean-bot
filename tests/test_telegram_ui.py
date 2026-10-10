@@ -47,10 +47,7 @@ async def test_question_outcome_has_progress_scale_and_bounded_callbacks() -> No
     assert "<code>5</code> Strongly agree" in reply.text
     assert [button.text for button in reply.buttons[0]] == ["1", "2", "3", "4", "5"]
     assert [button.text for button in reply.buttons[1]] == ["Cancel"]
-    assert all(
-        len(encode_callback(button.intent).encode()) <= 64
-        for button in reply.buttons[0]
-    )
+    assert all(len(encode_callback(button.intent).encode()) <= 64 for button in reply.buttons[0])
 
     second = await interaction.answer(
         42,

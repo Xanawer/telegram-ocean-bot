@@ -42,9 +42,7 @@ def decode_callback(value: str | None) -> CallbackIntent:
     for action, literal in _LITERALS.items():
         if value == literal:
             return CallbackIntent(action)
-    for action, prefix in sorted(
-        _PREFIXES.items(), key=lambda item: len(item[1]), reverse=True
-    ):
+    for action, prefix in sorted(_PREFIXES.items(), key=lambda item: len(item[1]), reverse=True):
         marker = prefix + ":"
         if value.startswith(marker):
             values = tuple(value.removeprefix(marker).split(":"))

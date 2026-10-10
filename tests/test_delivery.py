@@ -71,3 +71,23 @@ async def test_telegram_delivery_raises_after_retry_budget() -> None:
     with pytest.raises(TelegramRetryAfter):
         await delivery.call(operation, "test.send")
     assert attempts == 3
+
+
+async def test_telegram_delivery_gives_up_on_long_flood_control_waits() -> None:
+    delays: list[float] = []
+
+    async def sleep(delay: float) -> None:
+        delays.append(delay)
+
+    async def operation() -> str:
+        raise TelegramRetryAfter(
+            method=SendMessage(chat_id=1, text="test"),
+            message="retry",
+            retry_after=600,
+        )
+
+    delivery = TelegramDelivery(max_per_second=None, max_retry_after=10, sleep=sleep)
+
+    with pytest.raises(TelegramRetryAfter):
+        await delivery.call(operation, "test.send")
+    assert delays == []
