@@ -43,9 +43,7 @@ class DataRetention:
             effective_now - self.ASSESSMENT_RETENTION,
             effective_now,
         )
-        purged = await self._analytics.purge_before(
-            effective_now - self.ANALYTICS_RETENTION
-        )
+        purged = await self._analytics.purge_before(effective_now - self.ANALYTICS_RETENTION)
         return RetentionResult(expired, purged)
 
     async def run_forever(

@@ -43,4 +43,5 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = "src"
 packages = ["ocean_bot"]

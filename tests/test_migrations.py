@@ -1,9 +1,15 @@
+import logging
 from pathlib import Path
 
+import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ocean_bot.infrastructure.local import create_local_engine
 from ocean_bot.infrastructure.migrations import upgrade_database
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 async def test_local_volume_has_the_replication_compatible_schema(
@@ -49,3 +55,24 @@ async def test_replication_migration_backfills_existing_analytics_ids(
         ).scalar_one()
     assert event_id == "legacy-1"
     await engine.dispose()
+
+
+def test_database_url_with_percent_encoded_characters_is_accepted(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = Config(str(PROJECT_ROOT / "alembic.ini"))
+    config.attributes["database_url"] = "postgresql://user:p%40ss@localhost/ocean"
+
+    command.upgrade(config, "head", sql=True)
+
+    assert "CREATE TABLE" in capsys.readouterr().out
+
+
+async def test_in_process_upgrade_keeps_existing_loggers_enabled(tmp_path: Path) -> None:
+    logger = logging.getLogger("ocean_bot.test")
+    aiogram_logger = logging.getLogger("aiogram.test")
+
+    await upgrade_database(f"sqlite+aiosqlite:///{tmp_path / 'logging.db'}")
+
+    assert not logger.disabled
+    assert not aiogram_logger.disabled

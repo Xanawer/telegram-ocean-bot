@@ -1,3 +1,5 @@
+import pytest
+
 from ocean_bot.domain.questionnaire import Item, Questionnaire, Trait
 from ocean_bot.domain.scoring import score_questionnaire
 
@@ -48,3 +50,16 @@ def test_scores_positive_and_reverse_keyed_items_from_fixed_answers() -> None:
         "o2": 4,
     }
     assert result.facet_scores == {"Imagination": 4.0}
+
+
+def test_rejects_non_integer_answers() -> None:
+    questionnaire = Questionnaire(
+        id="single",
+        version="1",
+        title="Single",
+        items=(Item(id="e1", text="E", trait=Trait.EXTRAVERSION, reverse=False),),
+    )
+
+    for invalid in (2.5, 3.0, True, 0, 6):
+        with pytest.raises(ValueError, match="must be an integer"):
+            score_questionnaire(questionnaire, {"e1": invalid})  # type: ignore[dict-item]

@@ -27,6 +27,27 @@ class UserActionLocks:
             yield
 
 
+class UserActionLockMiddleware(BaseMiddleware):
+    """Serialize a user's commands with their callbacks.
+
+    Commands such as /test can import remote state for the user; holding the same lock as
+    the deletion callback keeps that import from landing after the user's deletion.
+    """
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        locks = data.get("action_locks")
+        user = getattr(event, "from_user", None)
+        if not isinstance(locks, UserActionLocks) or user is None:
+            return await handler(event, data)
+        async with locks.hold(user.id):
+            return await handler(event, data)
+
+
 class RateLimitMiddleware(BaseMiddleware):
     def __init__(
         self,

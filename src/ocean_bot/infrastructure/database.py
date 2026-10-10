@@ -696,6 +696,12 @@ class SqlUserDataRightsRepository:
                     DeletionTombstoneModel.telegram_user_id == telegram_user_id
                 )
             )
+            await session.execute(
+                delete(SyncOutboxModel).where(
+                    SyncOutboxModel.kind == SyncJobKind.DELETE_USER,
+                    SyncOutboxModel.entity_id == str(telegram_user_id),
+                )
+            )
 
     async def deletion_user_ref(self, telegram_user_id: int) -> str | None:
         async with self._sessions() as session:
@@ -718,19 +724,21 @@ class SqlUserDataRightsRepository:
                     )
                 )
             )
-            if assessment_ids or event_ids:
-                conditions = []
-                if assessment_ids:
-                    conditions.append(
-                        (SyncOutboxModel.kind == SyncJobKind.ASSESSMENT)
-                        & SyncOutboxModel.entity_id.in_(assessment_ids)
-                    )
-                if event_ids:
-                    conditions.append(
-                        (SyncOutboxModel.kind == SyncJobKind.ANALYTICS)
-                        & SyncOutboxModel.entity_id.in_(event_ids)
-                    )
-                await session.execute(delete(SyncOutboxModel).where(or_(*conditions)))
+            conditions = [
+                (SyncOutboxModel.kind == SyncJobKind.USER)
+                & (SyncOutboxModel.entity_id == str(telegram_user_id))
+            ]
+            if assessment_ids:
+                conditions.append(
+                    (SyncOutboxModel.kind == SyncJobKind.ASSESSMENT)
+                    & SyncOutboxModel.entity_id.in_(assessment_ids)
+                )
+            if event_ids:
+                conditions.append(
+                    (SyncOutboxModel.kind == SyncJobKind.ANALYTICS)
+                    & SyncOutboxModel.entity_id.in_(event_ids)
+                )
+            await session.execute(delete(SyncOutboxModel).where(or_(*conditions)))
             await session.execute(
                 delete(AssessmentModel).where(AssessmentModel.telegram_user_id == telegram_user_id)
             )

@@ -7,7 +7,7 @@
 3. Leave webhook variables unset for long polling.
 4. Run `docker compose up --build`.
 
-Compose runs a one-shot `migrate` service before starting the bot. The application image itself never migrates on startup. The webhook deployment exposes database-backed readiness at `GET /health`, liveness at `GET /live`, and listens on `OCEAN_PORT`.
+Compose runs a one-shot `migrate` service before starting the bot. The application image itself never migrates on startup. The webhook deployment exposes database-backed readiness at `GET /health`, liveness at `GET /live`, and listens on `OCEAN_PORT`. Under Compose the container always listens on 8080, and `OCEAN_PORT` selects only the published host port.
 
 ## Production deployment
 

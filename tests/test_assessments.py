@@ -133,3 +133,17 @@ async def test_individual_result_deletion_rejects_active_assessment(
 
     with pytest.raises(StaleInput, match="completed"):
         await service.delete_assessment(42, started.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [2.5, 3.0, True, 0, 6])
+async def test_answer_rejects_values_that_are_not_integers_from_one_to_five(
+    service: AssessmentService,
+    value: object,
+) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    await service.accept_terms(42, "en", now)
+    started = await service.start(42, "quick", now)
+
+    with pytest.raises(ValueError, match="integers from 1 to 5"):
+        await service.answer(42, started.id, "e1", value, now)  # type: ignore[arg-type]

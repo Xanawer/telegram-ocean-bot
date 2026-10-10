@@ -14,12 +14,11 @@ from uuid import uuid4
 
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.methods import EditMessageText
-from sqlalchemy.exc import SQLAlchemyError
 
 from ocean_bot.application.analytics import AnalyticsEvent
 from ocean_bot.application.assessments import StoredAssessment
 from ocean_bot.application.data_rights import UserReferences
-from ocean_bot.domain.assessment import Assessment, UserRecord
+from ocean_bot.domain.assessment import Assessment, AssessmentStatus, UserRecord
 from ocean_bot.domain.catalog import load_bundled_questionnaires
 from ocean_bot.infrastructure.database import (
     Base,
@@ -146,9 +145,20 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
                         updated,
                         event,
                     )
+                    if stored[slot].assessment.status is AssessmentStatus.COMPLETED:
+                        fresh = Assessment.start(
+                            str(uuid4()),
+                            updated.telegram_user_id,
+                            questionnaire,
+                            datetime.now(UTC),
+                        )
+                        await local_assessments.import_assessments(
+                            [StoredAssessment(fresh, 0)], enqueue=True
+                        )
+                        stored[slot] = StoredAssessment(fresh, 0)
                     await delivery.call(fake_telegram_edit, "message.edit_text")
                     metrics.completed += 1
-            except (SQLAlchemyError, OSError, RuntimeError) as error:
+            except Exception as error:
                 metrics.errors[type(error).__name__] += 1
             finally:
                 metrics.callback_latencies_ms.append((perf_counter() - started) * 1000)
@@ -167,20 +177,25 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
 
         sync_task = asyncio.create_task(sync_loop())
         tasks: list[asyncio.Task[None]] = []
-        started = perf_counter()
-        next_due = started
-        while perf_counter() - started < args.duration:
-            tasks.append(asyncio.create_task(answer_one(metrics.scheduled)))
-            metrics.scheduled += 1
-            next_due += 1 / args.rate
-            await asyncio.sleep(max(0, next_due - perf_counter()))
-        await asyncio.gather(*tasks)
-        stop_sync.set()
-        await sync_task
-        metrics.max_backlog = max(metrics.max_backlog, await outbox.pending_count())
-        final_backlog = await outbox.pending_count()
-        await local_engine.dispose()
-        await remote_engine.dispose()
+        try:
+            started = perf_counter()
+            next_due = started
+            while perf_counter() - started < args.duration:
+                tasks.append(asyncio.create_task(answer_one(metrics.scheduled)))
+                metrics.scheduled += 1
+                next_due += 1 / args.rate
+                await asyncio.sleep(max(0, next_due - perf_counter()))
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            stop_sync.set()
+            await sync_task
+            final_backlog = await outbox.pending_count()
+            metrics.max_backlog = max(metrics.max_backlog, final_backlog)
+            await local_engine.dispose()
+            await remote_engine.dispose()
 
         return {
             "rate_answers_per_s": args.rate,

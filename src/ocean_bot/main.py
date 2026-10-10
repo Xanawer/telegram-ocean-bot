@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 
 from ocean_bot.config import Settings
+from ocean_bot.log_redaction import install_log_redaction
 from ocean_bot.runtime import Runtime
 
 
@@ -28,6 +29,7 @@ def run(argv: Sequence[str] | None = None) -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    install_log_redaction()
     runtime = Runtime(Settings())  # type: ignore[call-arg]
     if command == "retention":
         result = asyncio.run(runtime.run_retention())

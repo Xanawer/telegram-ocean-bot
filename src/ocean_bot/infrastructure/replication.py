@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -51,6 +52,29 @@ async def _retry_disconnect[T](operation: Callable[[], Awaitable[T]]) -> T:
         if not error.connection_invalidated:
             raise
         return await operation()
+
+
+_READ_THROUGH_ATTEMPTS = 3
+
+
+class ReplicationCoordinator:
+    """Order deletions against sync batches and read-through imports.
+
+    Local-first storage runs as exactly one replica, so in-process coordination suffices.
+    A batch or read-through that read remote state before a deletion must not write it
+    back afterwards: sync batches hold the lock throughout, and read-throughs compare the
+    deletion count from before their remote read while holding the lock to store.
+    """
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.deletions = 0
+
+    @asynccontextmanager
+    async def deleting(self) -> AsyncIterator[None]:
+        async with self.lock:
+            self.deletions += 1
+            yield
 
 
 class ReplicationMode(StrEnum):
@@ -169,12 +193,20 @@ class LocalBootstrapService:
         self,
         local: SqlAssessmentRepository,
         remote: SqlAssessmentRepository,
+        local_rights: LocalUserDataRightsRepository | None = None,
     ) -> None:
         self._local = local
         self._remote = remote
+        self._local_rights = local_rights
 
     async def run(self) -> int:
-        active = await _retry_disconnect(self._remote.list_all_active)
+        active = [
+            stored
+            for stored in await _retry_disconnect(self._remote.list_all_active)
+            if self._local_rights is None
+            or await self._local_rights.deletion_user_ref(stored.assessment.telegram_user_id)
+            is None
+        ]
         users = await _retry_disconnect(
             lambda: self._remote.users_by_id(
                 list({stored.assessment.telegram_user_id for stored in active})
@@ -378,6 +410,8 @@ class LocalFirstAssessmentRepository(AssessmentRepository):
         mode: ReplicationMode,
         storage_guard: LocalStorageGuard | None = None,
         replication_health: SyncHealth | None = None,
+        local_rights: LocalUserDataRightsRepository | None = None,
+        coordinator: ReplicationCoordinator | None = None,
     ) -> None:
         self._local = local
         self._remote = remote
@@ -385,8 +419,14 @@ class LocalFirstAssessmentRepository(AssessmentRepository):
         self._mode = mode
         self._storage_guard = storage_guard
         self._replication_health = replication_health
+        self._local_rights = local_rights
+        self._coordinator = coordinator or ReplicationCoordinator()
 
     async def save_user(self, user: UserRecord) -> None:
+        if await self._deletion_pending(user.telegram_user_id):
+            raise StorageUnavailable(
+                "Your previous deletion request is still being completed; please try again later"
+            )
         if self._storage_guard is not None:
             await self._storage_guard.ensure_writable()
         if self._mode is ReplicationMode.SHADOW:
@@ -404,18 +444,17 @@ class LocalFirstAssessmentRepository(AssessmentRepository):
             ) from error
 
     async def get_user(self, telegram_user_id: int) -> UserRecord | None:
-        if self._mode is ReplicationMode.SHADOW:
-            user = await _retry_disconnect(partial(self._remote.get_user, telegram_user_id))
+        if await self._deletion_pending(telegram_user_id):
+            return None
+        if self._mode is ReplicationMode.AUTHORITATIVE:
+            user = await self._local.get_user(telegram_user_id)
             if user is not None:
-                await self._local.import_user(user)
-            return user
-        user = await self._local.get_user(telegram_user_id)
-        if user is not None:
-            return user
-        user = await _retry_disconnect(partial(self._remote.get_user, telegram_user_id))
-        if user is not None:
-            await self._local.import_user(user)
-        return user
+                return user
+        return await self._read_through(
+            partial(self._remote.get_user, telegram_user_id),
+            lambda user: (user.telegram_user_id,),
+            self._local.import_user,
+        )
 
     async def create_assessment(self, assessment: Assessment) -> StoredAssessment:
         if self._storage_guard is not None:
@@ -461,40 +500,44 @@ class LocalFirstAssessmentRepository(AssessmentRepository):
             raise StorageUnavailable("Your answer could not be saved; please try again") from error
 
     async def get_assessment(self, assessment_id: str) -> StoredAssessment | None:
-        primary = self._remote if self._mode is ReplicationMode.SHADOW else self._local
-        stored = (
-            await _retry_disconnect(partial(primary.get_assessment, assessment_id))
-            if primary is self._remote
-            else await primary.get_assessment(assessment_id)
-        )
-        if stored is not None:
-            if self._mode is ReplicationMode.SHADOW:
-                await self._local.import_assessment(stored, enqueue=True)
-            return stored
+        store: Callable[[list[StoredAssessment]], Awaitable[None]]
         if self._mode is ReplicationMode.AUTHORITATIVE:
-            stored = await _retry_disconnect(partial(self._remote.get_assessment, assessment_id))
+            stored = await self._local.get_assessment(assessment_id)
             if stored is not None:
-                await self._local.import_assessment(stored)
-        return stored
+                if await self._deletion_pending(stored.assessment.telegram_user_id):
+                    return None
+                return stored
+            store = self._import_with_owner
+        else:
+            store = self._mirror_shadow
+        return await self._read_through(
+            partial(self._remote.get_assessment, assessment_id),
+            lambda stored: (stored.assessment.telegram_user_id,),
+            lambda stored: store([stored]),
+        )
 
     async def get_active(self, telegram_user_id: int) -> StoredAssessment | None:
-        primary = self._remote if self._mode is ReplicationMode.SHADOW else self._local
-        stored = (
-            await _retry_disconnect(partial(primary.get_active, telegram_user_id))
-            if primary is self._remote
-            else await primary.get_active(telegram_user_id)
+        if await self._deletion_pending(telegram_user_id):
+            return None
+        if self._mode is ReplicationMode.AUTHORITATIVE:
+            return await self._local.get_active(telegram_user_id)
+        return await self._read_through(
+            partial(self._remote.get_active, telegram_user_id),
+            lambda stored: (stored.assessment.telegram_user_id,),
+            lambda stored: self._mirror_shadow([stored]),
         )
-        if stored is not None:
-            if self._mode is ReplicationMode.SHADOW:
-                await self._local.import_assessment(stored, enqueue=True)
-            return stored
-        return None
 
     async def list_completed(self, telegram_user_id: int) -> list[StoredAssessment]:
-        remote = await _retry_disconnect(partial(self._remote.list_completed, telegram_user_id))
+        if await self._deletion_pending(telegram_user_id):
+            return []
         if self._mode is ReplicationMode.SHADOW:
-            await self._local.import_assessments(remote, enqueue=True)
-            return remote
+            mirrored = await self._read_through(
+                partial(self._remote.list_completed, telegram_user_id),
+                lambda _: (telegram_user_id,),
+                self._mirror_shadow,
+            )
+            return mirrored or []
+        remote = await _retry_disconnect(partial(self._remote.list_completed, telegram_user_id))
         local = await self._local.list_completed(telegram_user_id)
         merged = {stored.assessment.id: stored for stored in remote}
         for stored in local:
@@ -514,10 +557,64 @@ class LocalFirstAssessmentRepository(AssessmentRepository):
         return await primary.list_active_before(cutoff)
 
     async def delete_assessment(self, assessment_id: str, telegram_user_id: int) -> None:
-        await _retry_disconnect(
-            partial(self._remote.delete_assessment, assessment_id, telegram_user_id)
+        async with self._coordinator.deleting():
+            await _retry_disconnect(
+                partial(self._remote.delete_assessment, assessment_id, telegram_user_id)
+            )
+            await self._local.delete_assessment(assessment_id, telegram_user_id)
+
+    async def _deletion_pending(self, telegram_user_id: int) -> bool:
+        return (
+            self._local_rights is not None
+            and await self._local_rights.deletion_user_ref(telegram_user_id) is not None
         )
-        await self._local.delete_assessment(assessment_id, telegram_user_id)
+
+    async def _read_through[T](
+        self,
+        fetch: Callable[[], Awaitable[T | None]],
+        owners: Callable[[T], Iterable[int]],
+        store: Callable[[T], Awaitable[None]],
+    ) -> T | None:
+        """Read remote state and cache it locally unless a deletion intervened."""
+        for _ in range(_READ_THROUGH_ATTEMPTS):
+            deletions = self._coordinator.deletions
+            value = await _retry_disconnect(fetch)
+            if value is None:
+                return None
+            async with self._coordinator.lock:
+                if self._coordinator.deletions != deletions:
+                    continue
+                for owner in owners(value):
+                    if await self._deletion_pending(owner):
+                        return None
+                await store(value)
+                return value
+        raise StorageUnavailable("Storage is busy; please try again")
+
+    async def _import_with_owner(
+        self,
+        stored_assessments: list[StoredAssessment],
+        *,
+        enqueue: bool = False,
+    ) -> None:
+        if not stored_assessments:
+            return
+        owners: list[UserRecord] = []
+        for user_id in {stored.assessment.telegram_user_id for stored in stored_assessments}:
+            if await self._local.get_user(user_id) is not None:
+                continue
+            owner = await _retry_disconnect(partial(self._remote.get_user, user_id))
+            if owner is not None:
+                owners.append(owner)
+        await self._local.import_users(owners)
+        await self._local.import_assessments(stored_assessments, enqueue=enqueue)
+
+    async def _mirror_shadow(self, stored_assessments: list[StoredAssessment]) -> None:
+        try:
+            await self._import_with_owner(stored_assessments, enqueue=True)
+        except (OSError, SQLAlchemyError) as error:
+            self._record_shadow_mismatch()
+            _logger.warning("shadow_mirror_failed error=%s", type(error).__name__)
 
     @staticmethod
     def _revision(stored: StoredAssessment) -> int:
@@ -542,10 +639,12 @@ class LocalFirstUserDataRightsRepository(UserDataRightsRepository):
         local: LocalUserDataRightsRepository,
         remote: RevisionedUserDataRightsRepository,
         mode: ReplicationMode = ReplicationMode.AUTHORITATIVE,
+        coordinator: ReplicationCoordinator | None = None,
     ) -> None:
         self._local = local
         self._remote = remote
         self._mode = mode
+        self._coordinator = coordinator or ReplicationCoordinator()
 
     async def load_user_data(self, telegram_user_id: int, user_ref: str) -> StoredUserData:
         if await self._local.deletion_user_ref(telegram_user_id) is not None:
@@ -576,18 +675,19 @@ class LocalFirstUserDataRightsRepository(UserDataRightsRepository):
         )
 
     async def delete_user_data(self, telegram_user_id: int, user_ref: str) -> None:
-        await self._local.mark_deletion(telegram_user_id, user_ref, datetime.now(UTC))
-        try:
-            await _retry_disconnect(
-                partial(self._remote.delete_user_data, telegram_user_id, user_ref)
-            )
-        except Exception as error:
+        async with self._coordinator.deleting():
+            await self._local.mark_deletion(telegram_user_id, user_ref, datetime.now(UTC))
+            try:
+                await _retry_disconnect(
+                    partial(self._remote.delete_user_data, telegram_user_id, user_ref)
+                )
+            except Exception as error:
+                await self._local.purge_user_data(telegram_user_id, user_ref)
+                raise DataRightsUnavailable(
+                    "Deletion could not be confirmed remotely; use /delete_me to retry"
+                ) from error
             await self._local.purge_user_data(telegram_user_id, user_ref)
-            raise DataRightsUnavailable(
-                "Deletion could not be confirmed remotely; use /delete_me to retry"
-            ) from error
-        await self._local.purge_user_data(telegram_user_id, user_ref)
-        await self._local.finalize_deletion(telegram_user_id)
+            await self._local.finalize_deletion(telegram_user_id)
 
 
 class MirroringAnalyticsRepository(AnalyticsRepository):
@@ -607,8 +707,7 @@ class MirroringAnalyticsRepository(AnalyticsRepository):
         return await _retry_disconnect(self._remote.counts)
 
     async def delete_before(self, cutoff: datetime) -> int:
-        remote = await _retry_disconnect(partial(self._remote.delete_before, cutoff))
-        await self._local.delete_before(cutoff)
+        remote, _ = await _delete_in_both(self._remote, self._local, cutoff)
         return remote
 
 
@@ -632,9 +731,22 @@ class AuthoritativeAnalyticsRepository(AnalyticsRepository):
         return await _retry_disconnect(self._remote.counts)
 
     async def delete_before(self, cutoff: datetime) -> int:
-        remote = await _retry_disconnect(partial(self._remote.delete_before, cutoff))
-        local = await self._local.delete_before(cutoff)
+        remote, local = await _delete_in_both(self._remote, self._local, cutoff)
         return remote + local
+
+
+async def _delete_in_both(
+    remote: AnalyticsRepository,
+    local: SqlAnalyticsRepository,
+    cutoff: datetime,
+) -> tuple[int, int]:
+    """Purge expired events from both stores, so a remote outage cannot block local retention."""
+    try:
+        remote_deleted = await _retry_disconnect(partial(remote.delete_before, cutoff))
+    except Exception:
+        await local.delete_before(cutoff)
+        raise
+    return remote_deleted, await local.delete_before(cutoff)
 
 
 class SyncService:
@@ -648,6 +760,7 @@ class SyncService:
         user_references: UserReferences,
         local_rights: SqlUserDataRightsRepository | None = None,
         remote_rights: SqlUserDataRightsRepository | None = None,
+        coordinator: ReplicationCoordinator | None = None,
     ) -> None:
         self._outbox = outbox
         self._local_assessments = local_assessments
@@ -657,6 +770,7 @@ class SyncService:
         self._user_references = user_references
         self._local_rights = local_rights
         self._remote_rights = remote_rights
+        self._coordinator = coordinator or ReplicationCoordinator()
         self._last_backlog_warning: datetime | None = None
 
     async def run_once(
@@ -665,7 +779,10 @@ class SyncService:
         *,
         force: bool = False,
     ) -> SyncResult:
-        effective_now = now or datetime.now(UTC)
+        async with self._coordinator.lock:
+            return await self._run_batch(now or datetime.now(UTC), force=force)
+
+    async def _run_batch(self, effective_now: datetime, *, force: bool) -> SyncResult:
         jobs = await self._outbox.pending(effective_now, force=force)
         users = 0
         assessments = 0

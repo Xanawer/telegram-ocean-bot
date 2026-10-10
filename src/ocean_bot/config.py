@@ -34,6 +34,13 @@ class Settings(BaseSettings):
             return value.replace("postgresql://", "postgresql+asyncpg://", 1)
         return value
 
+    @field_validator("webhook_base_url", "webhook_secret", "local_database_url", mode="before")
+    @classmethod
+    def blank_means_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @model_validator(mode="after")
     def validate_webhook(self) -> Settings:
         if self.webhook_base_url:

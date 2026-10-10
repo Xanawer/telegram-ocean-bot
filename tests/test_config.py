@@ -99,3 +99,39 @@ def test_local_first_storage_requires_a_sqlite_database() -> None:
             privacy_contact="privacy@example.com",
             storage_mode="authoritative",
         )
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_blank_optional_settings_are_treated_as_unset(blank: str) -> None:
+    settings = Settings(
+        bot_token="123456:test-token",
+        database_url="sqlite+aiosqlite:///local.db",
+        analytics_pepper="long-test-pepper",
+        admin_user_id=42,
+        privacy_contact="privacy@example.com",
+        webhook_base_url=blank,
+        webhook_secret=blank,
+        local_database_url=blank,
+    )
+
+    assert settings.webhook_base_url is None
+    assert settings.webhook_secret is None
+    assert settings.local_database_url is None
+    assert settings.webhook_enabled is False
+
+
+def test_blank_webhook_base_url_from_the_environment_disables_webhooks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OCEAN_WEBHOOK_BASE_URL", "")
+
+    settings = Settings(
+        _env_file=None,
+        bot_token="123456:test-token",
+        database_url="sqlite+aiosqlite:///local.db",
+        analytics_pepper="long-test-pepper",
+        admin_user_id=42,
+        privacy_contact="privacy@example.com",
+    )
+
+    assert settings.webhook_enabled is False

@@ -31,7 +31,7 @@ def score_questionnaire(
     scores_by_facet: dict[str, list[int]] = {}
     for item in questionnaire.items:
         answer = answers[item.id]
-        if isinstance(answer, bool) or not 1 <= answer <= 5:
+        if isinstance(answer, bool) or not isinstance(answer, int) or not 1 <= answer <= 5:
             raise ValueError(f"Answer for {item.id} must be an integer from 1 to 5")
         scored = 6 - answer if item.reverse else answer
         scored_answers[item.id] = scored

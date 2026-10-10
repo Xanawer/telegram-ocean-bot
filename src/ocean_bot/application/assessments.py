@@ -165,9 +165,12 @@ class AssessmentService:
         assessment_id: str,
         now: datetime,
         event_factory: AssessmentEventFactory | None = None,
+        expected_answered: int | None = None,
     ) -> AssessmentTransition:
         stored = await self._owned_assessment(telegram_user_id, assessment_id)
         await self._reject_expired(stored, now)
+        if expected_answered is not None and len(stored.assessment.answers) != expected_answered:
+            raise StaleInput("This question has already changed")
         try:
             updated = stored.assessment.back(self._questionnaire_for(stored.assessment), now)
         except AssessmentStateError as error:
